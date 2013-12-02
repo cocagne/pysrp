@@ -895,7 +895,7 @@ static void ver_dealloc( PyVerifier * self )
     if ( self->bytes_s != NULL )
         free( (char *)self->bytes_s );
         
-    self->ob_type->tp_free( (PyObject *) self );
+    Py_TYPE(self)->tp_free( (PyObject *) self );
 }
 
 
@@ -903,7 +903,7 @@ static void usr_dealloc( PyUser * self )
 {
     if ( self->usr != NULL )
         srp_user_delete( self->usr );
-    self->ob_type->tp_free( (PyObject *) self );
+    Py_TYPE(self)->tp_free( (PyObject *) self );
 }
 
 

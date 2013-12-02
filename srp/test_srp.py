@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 
 import unittest
 import os.path
@@ -7,18 +8,19 @@ import sys
 import time
 import thread
 
+
 this_dir = os.path.dirname( os.path.abspath(__file__) )
-    
+
 build_dir = os.path.join( os.path.dirname(this_dir), 'build' )
 
 if not os.path.exists( build_dir ):
-    print 'Please run "python setup.py build" prior to running tests'
+    print('Please run "python setup.py build" prior to running tests')
     sys.exit(1)
-    
+
 plat_dirs = [ d for d in os.listdir('build') if d.startswith('lib') ]
 
 if not len(plat_dirs) == 1:
-    print 'Unexpected build result... aborting'
+    print('Unexpected build result... aborting')
 
 plat_dir = os.path.join( build_dir, plat_dirs[0] )
 
@@ -33,7 +35,7 @@ import srp._ctsrp as _ctsrp
 try:
     import srp._srp as _srp
 except ImportError:
-    print 'Failed to import srp._srp. Aborting tests'
+    print('Failed to import srp._srp. Aborting tests')
     sys.exit(1)
 
 
@@ -62,17 +64,17 @@ class SRPTests( unittest.TestCase ):
 
         usr      = User( username, password, hash_alg, ng_type, n_hex, g_hex )
         uname, A = usr.start_authentication()
-    
+
         # username, A => server
         svr      = Verifier( uname, _s, _v, A, hash_alg, ng_type, n_hex, g_hex )
         s,B      = svr.get_challenge()
-        
+
         # s,B => client
         M        = usr.process_challenge( s, B )
-        
+
         # M => server
         HAMK     = svr.verify_session( M )
-    
+
         # HAMK => client
         usr.verify_session( HAMK )
 
@@ -143,24 +145,24 @@ password = 'testpassword'
 NLEFT = 0
 
 def do_auth( mod, hash_alg, ng_type, _s, _v ):
-    
+
     usr      = mod.User( username, password, hash_alg, ng_type)
     uname, A = usr.start_authentication()
-    
+
     # username, A => server
     svr      = mod.Verifier( uname, _s, _v, A, hash_alg, ng_type)
     s,B      = svr.get_challenge()
-    
+
     # s,B => client
     M        = usr.process_challenge( s, B )
-    
+
     # M => server
     HAMK     = svr.verify_session( M )
-    
+
     # HAMK => client
     usr.verify_session( HAMK )
-    
-    if not svr.authenticated() or not usr.authenticated(): 
+
+    if not svr.authenticated() or not usr.authenticated():
         raise Exception('Authentication failed!')
 
 
@@ -169,7 +171,7 @@ def performance_test( mod, hash_alg, ng_type, niter=10, nthreads=1 ):
     _s, _v = srp.create_salted_verification_key( username, password, hash_alg, ng_type )
 
     NLEFT = niter
-    
+
     def test_thread():
         global NLEFT
         while NLEFT > 0:
@@ -188,75 +190,78 @@ def performance_test( mod, hash_alg, ng_type, niter=10, nthreads=1 ):
 
 
 def get_param_str( mod, hash_alg, ng_type ):
-    
+
     m = { 'srp._pysrp' : 'Python',
           'srp._ctsrp' : 'ctypes',
           'srp._srp'   : 'C     ' }
-    
+
     cfg = '%s, %s, %d:' % (m[mod.__name__], hash_map[hash_alg], prime_map[ng_type])
 
     return cfg
 
-    
+
 def param_test( mod, hash_alg, ng_type, niter=10 ):
     duration = performance_test( mod, hash_alg, ng_type, niter )
     cfg = get_param_str( mod, hash_alg, ng_type )
-    print '   ', cfg.ljust(20), '%.6f' % (duration/niter)
+    print('   ', cfg.ljust(20), '%.6f' % (duration/niter))
     return duration/niter
-    
+
 
 def print_default_timings():
-    print '*'*60
-    print 'Default Parameter Timings:'
+    print('*'*60)
+    print('Default Parameter Timings:')
     py_time = param_test( _pysrp, srp.SHA1, srp.NG_2048 )
     ct_time = param_test( _ctsrp, srp.SHA1, srp.NG_2048 )
     c_time  = param_test( _srp,   srp.SHA1, srp.NG_2048 )
-    print ''
-    print 'Performance increases: '
-    print '   ctypes-module : ', py_time/ct_time
-    print '   C-module      : ', py_time/c_time
+    print('')
+    print('Performance increases: ')
+    print('   ctypes-module : ', py_time/ct_time)
+    print('   C-module      : ', py_time/c_time)
 
 
 def print_performance_table():
     ng_types = [ srp.NG_1024, srp.NG_2048, srp.NG_4096, srp.NG_8192 ]
     hash_types = [ srp.SHA1, srp.SHA224, srp.SHA256, srp.SHA384, srp.SHA512 ]
 
-    print '*'*60
-    print 'Hash Algorithm vs Prime Number performance table'
-    print ''
-    print '       |',
+    print('*'*60)
+    print('Hash Algorithm vs Prime Number performance table')
+    print('')
+    print('       |', end='')
     for ng in ng_types:
-        print ('NG_%d' % prime_map[ng]).rjust(12),
-    print ''
-    print '-'*60
+        print( ('NG_%d' % prime_map[ng]).rjust(12), end='')
+    print('')
+    print('-'*60)
 
     for hash_alg in hash_types:
 
-        print '%s |' % hash_map[hash_alg],
+        print('%s |' % hash_map[hash_alg], end='')
         for ng in ng_types:
-            print '{0:>12f}'.format(performance_test(_srp, hash_alg, ng) / 10),
-        print ''
+            print('{0:>12f} '.format(
+                performance_test(_srp, hash_alg, ng) / 10), end='')
+        print('')
 
 
 def print_thread_performance():
-    print '*'*60
-    print 'Thread Performance Test:'
+    print('*'*60)
+    print('Thread Performance Test:')
     niter = 100
     for nthreads in range(1,11):
-        print '   Thread Count {0:>2}: {1:8f}'.format(nthreads, performance_test(_srp, srp.SHA1, srp.NG_2048, niter, nthreads)/niter)
+        print('   Thread Count {0:>2}: {1:8f}'.format(
+            nthreads, performance_test(
+                _srp, srp.SHA1, srp.NG_2048, niter, nthreads)/niter))
 
 
-print '*'*60
-print '*'
-print '* Testing Implementation'
-print '*'
+print('*'*60)
+print('*')
+print('* Testing Implementation')
+print('*')
 suite = unittest.TestLoader().loadTestsFromTestCase(SRPTests)
 unittest.TextTestRunner(verbosity=1).run(suite)
 
-print '*'*60
-print '*'
-print '* Performance Testing'
-print '*'
+print('*'*60)
+print('*')
+print('* Performance Testing')
+print('*')
 print_thread_performance()
 print_performance_table()
 print_default_timings()
@@ -264,5 +269,3 @@ print_default_timings()
 
 # Pause briefly to ensure no background threads are still executing
 time.sleep(0.1)
-
-
