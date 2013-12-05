@@ -169,6 +169,18 @@ def H( hash_class, *args, **kwargs ):
     return long( h.hexdigest(), 16 )
 
 
+def H_nn_rfc5054( hash_class, N, n1, n2 ):
+    bin_N  = long_to_bytes(N)
+    bin_n1 = long_to_bytes(n1)
+    bin_n2 = long_to_bytes(n2)
+
+    head   = '\0'*(len(bin_N)-len(bin_n1))
+    middle = '\0'*(len(bin_N)-len(bin_n2))
+
+    return H( hash_class, head, bin_n1, middle, bin_n2 )
+
+
+H_nn_orig = H
 
 #N = 0xAC6BDB41324A9A9BF166DE5E1389582FAF72B6651987EE07FC3192943DB56050A37329CBB4A099ED8193E0757767A13DD52312AB4B03310DCD7F48A9DA04FD50E8083969EDB767B0CF6095179A163AB3661A05FBD5FAAAE82918A9962F0B93B855F97993EC975EEAA80D740ADBF4FF747359D041D5C33EA71D281E446B14773BCA97B43A23FB801676BD207A436C6481F1D2B9078717461A5B9D32E688F87748544523B524B0D57D5EA77A2775D2ECFA032CFBDBF52FB3786160279004E57AE6AF874E7303CE53299CCC041C7BC308D82A5698F3A8D0C38271AE35F8E9DBFBB694B5C803D89F7AE435DE236D525F54759B65E372FCD68EF20FA7111F9E4AFF73;
 #g = 2;    
@@ -223,7 +235,8 @@ def calculate_H_AMK( hash_class, A, M, K ):
   
 class Verifier (object):
   
-    def __init__(self, username, bytes_s, bytes_v, bytes_A, hash_alg=SHA1, ng_type=NG_2048, n_hex=None, g_hex=None):
+    def __init__(self, username, bytes_s, bytes_v, bytes_A, hash_alg=SHA1, ng_type=NG_2048, n_hex=None, g_hex=None,
+                 rfc5054_compat=False):
         if ng_type == NG_CUSTOM and (n_hex is None or g_hex is None):
             raise ValueError("Both n_hex and g_hex are required when ng_type = NG_CUSTOM")
         self.s = bytes_to_long(bytes_s)
@@ -231,10 +244,15 @@ class Verifier (object):
         self.I = username
         self.K = None
         self._authenticated = False
+        self.rfc5054        = rfc5054_compat
         
         N,g        = get_ng( ng_type, n_hex, g_hex )
         hash_class = _hash_map[ hash_alg ]
-        k          = H( hash_class, N, g )
+
+        if rfc5054_compat:
+            k = H_nn_rfc5054( hash_class, N, N, g )
+        else:
+            k = H_nn_orig( hash_class, N, g )
         
         self.hash_class = hash_class
         self.N          = N
@@ -249,8 +267,14 @@ class Verifier (object):
         if not self.safety_failed:
             
             self.b = get_random( 32 )
-            self.B = (k*self.v + pow(g, self.b, N)) % N
-            self.u = H(hash_class, self.A, self.B)
+            
+            if rfc5054_compat:
+                self.B = ( ((k*self.v)%N) + (pow(g, self.b, N)%N) ) % N
+                self.u = H_nn_rfc5054(hash_class, N, self.A, self.B)
+            else:
+                self.B = (k*self.v + pow(g, self.b, N)) % N
+                self.u = H_nn_orig(hash_class, self.A, self.B)
+                
             self.S = pow(self.A*pow(self.v, self.u, N ), self.b, N)
             self.K = hash_class( long_to_bytes(self.S) ).digest()
             self.M = calculate_M( hash_class, N, g, self.I, self.s, self.A, self.B, self.K )
@@ -285,12 +309,16 @@ class Verifier (object):
         
         
 class User (object):
-    def __init__(self, username, password, hash_alg=SHA1, ng_type=NG_2048, n_hex=None, g_hex=None):
+    def __init__(self, username, password, hash_alg=SHA1, ng_type=NG_2048, n_hex=None, g_hex=None, rfc5054_compat=False):
         if ng_type == NG_CUSTOM and (n_hex is None or g_hex is None):
             raise ValueError("Both n_hex and g_hex are required when ng_type = NG_CUSTOM")
         N,g        = get_ng( ng_type, n_hex, g_hex )
         hash_class = _hash_map[ hash_alg ]
-        k          = H( hash_class, N, g )
+
+        if rfc5054_compat:
+            k = H_nn_rfc5054( hash_class, N, N, g )
+        else:
+            k = H_nn_orig( hash_class, N, g )
         
         self.I     = username
         self.p     = password
@@ -301,6 +329,7 @@ class User (object):
         self.K     = None
         self.H_AMK = None
         self._authenticated = False
+        self.rfc5054        = rfc5054_compat
         
         self.hash_class = hash_class
         self.N          = N
@@ -339,8 +368,11 @@ class User (object):
         # SRP-6a safety check
         if (self.B % N) == 0:
             return None
-        
-        self.u = H( hash_class, self.A, self.B )
+
+        if self.rfc5054:
+            self.u = H_nn_rfc5054( hash_class, N, self.A, self.B )
+        else:
+            self.u = H_nn_orig( hash_class, self.A, self.B )
         
         # SRP-6a safety check
         if self.u == 0:

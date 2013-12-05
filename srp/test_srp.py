@@ -60,11 +60,11 @@ class SRPTests( unittest.TestCase ):
 
         _s, _v = create_salted_verification_key( username, password, hash_alg, ng_type, n_hex, g_hex )
 
-        usr      = User( username, password, hash_alg, ng_type, n_hex, g_hex )
+        usr      = User( username, password, hash_alg, ng_type, n_hex, g_hex, True )
         uname, A = usr.start_authentication()
     
         # username, A => server
-        svr      = Verifier( uname, _s, _v, A, hash_alg, ng_type, n_hex, g_hex )
+        svr      = Verifier( uname, _s, _v, A, hash_alg, ng_type, n_hex, g_hex, True )
         s,B      = svr.get_challenge()
         
         # s,B => client

@@ -190,6 +190,8 @@ load_func( 'BN_add',     [ BIGNUM, BIGNUM, BIGNUM ] )
 load_func( 'BN_sub',     [ BIGNUM, BIGNUM, BIGNUM ] )
 load_func( 'BN_mul',     [ BIGNUM, BIGNUM, BIGNUM, BN_CTX ] )
 load_func( 'BN_div',     [ BIGNUM, BIGNUM, BIGNUM, BIGNUM, BN_CTX ] )
+load_func( 'BN_mod_add', [ BIGNUM, BIGNUM, BIGNUM, BIGNUM, BN_CTX ] )
+load_func( 'BN_mod_mul', [ BIGNUM, BIGNUM, BIGNUM, BIGNUM, BN_CTX ] )
 load_func( 'BN_mod_exp', [ BIGNUM, BIGNUM, BIGNUM, BIGNUM, BN_CTX ] )
 
 load_func( 'BN_rand',    [ BIGNUM, ctypes.c_int, ctypes.c_int, ctypes.c_int ] )
@@ -240,7 +242,7 @@ def H_bn( hash_class, dest, n ):
     BN_bin2bn(d, len(d), dest)
     
     
-def H_bn_bn( hash_class, dest, n1, n2 ):
+def H_bn_bn_orig( hash_class, dest, n1, n2 ):
     h    = hash_class()
     bin1 = ctypes.create_string_buffer( BN_num_bytes(n1) )
     bin2 = ctypes.create_string_buffer( BN_num_bytes(n2) )
@@ -250,6 +252,32 @@ def H_bn_bn( hash_class, dest, n1, n2 ):
     h.update( bin2.raw )
     d = h.digest()
     BN_bin2bn(d, len(d), dest)
+
+
+
+def H_bn_bn_rfc5054( hash_class, dest, N, n1, n2 ):
+    h      = hash_class()
+    len_N  = BN_num_bytes(N)
+    len_n1 = BN_num_bytes(n1)
+    len_n2 = BN_num_bytes(n2)
+    
+    head   = '\0'*(len_N-len_n1)
+    middle = '\0'*(len_N-len_n2)
+    
+    bin1   = ctypes.create_string_buffer( len_n1 )
+    bin2   = ctypes.create_string_buffer( len_n2 )
+    
+    BN_bn2bin(n1, bin1)
+    BN_bn2bin(n2, bin2)
+
+    h.update( head )
+    h.update( bin1.raw )
+    h.update( middle )
+    h.update( bin2.raw )
+    
+    d = h.digest()
+    BN_bin2bn(d, len(d), dest)
+
     
     
 def H_bn_str( hash_class, dest, n, s ):
@@ -306,7 +334,7 @@ def HNxorg( hash_class, N, g ):
 
 
 
-def get_ngk( hash_class, ng_type, n_hex, g_hex ):
+def get_ngk( hash_class, ng_type, n_hex, g_hex, rfc5054=False ):
     if ng_type < NG_CUSTOM:
         n_hex, g_hex = _ng_const[ ng_type ]
     N = BN_new()
@@ -315,7 +343,11 @@ def get_ngk( hash_class, ng_type, n_hex, g_hex ):
     
     BN_hex2bn( N, n_hex )
     BN_hex2bn( g, g_hex )
-    H_bn_bn(hash_class, k, N, g)
+
+    if rfc5054:
+        H_bn_bn_rfc5054(hash_class, k, N, N, g)
+    else:
+        H_bn_bn_orig(hash_class, k, N, g)
 
     return N, g, k
 
@@ -354,7 +386,8 @@ def create_salted_verification_key( username, password, hash_alg=SHA1, ng_type=N
   
 
 class Verifier (object):
-    def __init__(self,  username, bytes_s, bytes_v, bytes_A, hash_alg=SHA1, ng_type=NG_2048, n_hex=None, g_hex=None):
+    def __init__(self,  username, bytes_s, bytes_v, bytes_A, hash_alg=SHA1, ng_type=NG_2048, n_hex=None, g_hex=None,
+                 rfc5054_compat=False):
         if ng_type == NG_CUSTOM and (n_hex is None or g_hex is None):
             raise ValueError("Both n_hex and g_hex are required when ng_type = NG_CUSTOM")
         self.A     = BN_new()
@@ -372,11 +405,12 @@ class Verifier (object):
         self.M     = None
         self.H_AMK = None
         self._authenticated = False
+        self.rfc5054 = rfc5054_compat
         
         self.safety_failed = False
         
         hash_class = _hash_map[ hash_alg ]
-        N,g,k      = get_ngk( hash_class, ng_type, n_hex, g_hex )
+        N,g,k      = get_ngk( hash_class, ng_type, n_hex, g_hex, rfc5054_compat )
         
         self.hash_class = hash_class
         self.N          = N
@@ -396,11 +430,18 @@ class Verifier (object):
             BN_rand(self.b, 256, -1, 0)
             
             # B = kv + g^b
-            BN_mul(self.tmp1, k, self.v, self.ctx)
-            BN_mod_exp(self.tmp2, g, self.b, N, self.ctx)
-            BN_add(self.B, self.tmp1, self.tmp2)
-            
-            H_bn_bn(hash_class, self.u, self.A, self.B)
+            if rfc5054_compat:
+                BN_mod_mul(self.tmp1, k, self.v, N, self.ctx)
+                BN_mod_exp(self.tmp2, g, self.b, N, self.ctx)
+                BN_mod_add(self.B, self.tmp1, self.tmp2, N, self.ctx)
+
+                H_bn_bn_rfc5054(hash_class, self.u, self.N, self.A, self.B)
+            else:
+                BN_mul(self.tmp1, k, self.v, self.ctx)
+                BN_mod_exp(self.tmp2, g, self.b, N, self.ctx)
+                BN_add(self.B, self.tmp1, self.tmp2)
+
+                H_bn_bn_orig(hash_class, self.u, self.A, self.B)
             
             # S = (A *(v^u)) ^ b
             BN_mod_exp(self.tmp1, self.v, self.u, N, self.ctx)
@@ -460,7 +501,8 @@ class Verifier (object):
         
     
 class User (object):
-    def __init__(self, username, password, hash_alg=SHA1, ng_type=NG_2048, n_hex=None, g_hex=None):
+    def __init__(self, username, password, hash_alg=SHA1, ng_type=NG_2048, n_hex=None, g_hex=None,
+                 rfc5054_compat=False):
         if ng_type == NG_CUSTOM and (n_hex is None or g_hex is None):
             raise ValueError("Both n_hex and g_hex are required when ng_type = NG_CUSTOM")
         self.username = username
@@ -481,9 +523,10 @@ class User (object):
         self.K     = None
         self.H_AMK = None
         self._authenticated = False
+        self.rfc5054 = rfc5054_compat
         
         hash_class = _hash_map[ hash_alg ]
-        N,g,k      = get_ngk( hash_class, ng_type, n_hex, g_hex )
+        N,g,k      = get_ngk( hash_class, ng_type, n_hex, g_hex, rfc5054_compat )
         
         self.hash_class = hash_class
         self.N          = N
@@ -545,8 +588,11 @@ class User (object):
         # SRP-6a safety check
         if BN_is_zero(self.B):
             return None
-            
-        H_bn_bn(hash_class, self.u, self.A, self.B)
+
+        if self.rfc5054:
+            H_bn_bn_rfc5054(hash_class, self.u, self.N, self.A, self.B)
+        else:
+            H_bn_bn_orig(hash_class, self.u, self.A, self.B)
         
         # SRP-6a safety check
         if BN_is_zero(self.u):
