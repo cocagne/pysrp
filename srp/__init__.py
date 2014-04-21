@@ -29,6 +29,7 @@ SHA384    = _mod.SHA384
 SHA512    = _mod.SHA512
 
 NG_1024   = _mod.NG_1024
+NG_1536   = _mod.NG_1536
 NG_2048   = _mod.NG_2048
 NG_4096   = _mod.NG_4096
 NG_8192   = _mod.NG_8192

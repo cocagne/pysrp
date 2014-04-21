@@ -14,8 +14,10 @@ build_dir = os.path.join( os.path.dirname(this_dir), 'build' )
 if not os.path.exists( build_dir ):
     print 'Please run "python setup.py build" prior to running tests'
     sys.exit(1)
+
+os.chdir(build_dir)
     
-plat_dirs = [ d for d in os.listdir('build') if d.startswith('lib') ]
+plat_dirs = [ d for d in os.listdir('.') if d.startswith('lib') ]
 
 if not len(plat_dirs) == 1:
     print 'Unexpected build result... aborting'
@@ -32,8 +34,8 @@ import srp._ctsrp as _ctsrp
 
 try:
     import srp._srp as _srp
-except ImportError:
-    print 'Failed to import srp._srp. Aborting tests'
+except ImportError, e:
+    print 'Failed to import srp._srp. Aborting tests: ', e
     sys.exit(1)
 
 
@@ -135,7 +137,7 @@ class SRPTests( unittest.TestCase ):
 # Performance Testing
 #
 hash_map  = { 0 : 'SHA1  ', 1 : 'SHA224', 2 : 'SHA256', 3 : 'SHA384', 4 : 'SHA512' }
-prime_map = { 0 : 1024, 1 : 2048, 2 : 4096, 3 : 8192 }
+prime_map = { 0 : 1024, 1 : 1536, 2 : 2048, 3 : 4096, 4 : 8192 }
 
 username = 'testuser'
 password = 'testpassword'
@@ -218,7 +220,7 @@ def print_default_timings():
 
 
 def print_performance_table():
-    ng_types = [ srp.NG_1024, srp.NG_2048, srp.NG_4096, srp.NG_8192 ]
+    ng_types = [ srp.NG_1024, srp.NG_1536, srp.NG_2048, srp.NG_4096, srp.NG_8192 ]
     hash_types = [ srp.SHA1, srp.SHA224, srp.SHA256, srp.SHA384, srp.SHA512 ]
 
     print '*'*60
