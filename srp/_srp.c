@@ -18,11 +18,12 @@ struct SRPUser;
 typedef enum
 {
     SRP_NG_1024,
-    SRP_NG_1536,
     SRP_NG_2048,
     SRP_NG_4096,
     SRP_NG_8192,
-    SRP_NG_CUSTOM
+    SRP_NG_CUSTOM,
+    SRP_NG_1536,
+    SRP_NG_INVALID
 } SRP_NGType;
 
 typedef enum 
@@ -170,16 +171,6 @@ static struct NGHex global_Ng_constants[] = {
    "9AFD5138FE8376435B9FC61D2FC0EB06E3",
    "2"
  },
- { /* 1536 */
-    "9DEF3CAFB939277AB1F12A8617A47BBBDBA51DF499AC4C80BEEEA961"
-    "4B19CC4D5F4F5F556E27CBDE51C6A94BE4607A291558903BA0D0F843"
-    "80B655BB9A22E8DCDF028A7CEC67F0D08134B1C8B97989149B609E0B"
-    "E3BAB63D47548381DBC5B1FC764E3F4B53DD9DA1158BFD3E2B9C8CF5"
-    "6EDF019539349627DB2FD53D24B7C48665772E437D6C7F8CE442734A"
-    "F7CCB7AE837C264AE3A9BEB87F8A2FE9B8B5292E5A021FFF5E91479E"
-    "8CE7A28C2442C6F315180F93499A234DCF76E3FED135F9BB",
-    "2"
- },
  { /* 2048 */
    "AC6BDB41324A9A9BF166DE5E1389582FAF72B6651987EE07FC3192943DB56050A37329CBB4"
    "A099ED8193E0757767A13DD52312AB4B03310DCD7F48A9DA04FD50E8083969EDB767B0CF60"
@@ -252,6 +243,16 @@ static struct NGHex global_Ng_constants[] = {
    "60C980DD98EDD3DFFFFFFFFFFFFFFFFF",
    "13"
  },
+ { /* 1536 */
+    "9DEF3CAFB939277AB1F12A8617A47BBBDBA51DF499AC4C80BEEEA961"
+    "4B19CC4D5F4F5F556E27CBDE51C6A94BE4607A291558903BA0D0F843"
+    "80B655BB9A22E8DCDF028A7CEC67F0D08134B1C8B97989149B609E0B"
+    "E3BAB63D47548381DBC5B1FC764E3F4B53DD9DA1158BFD3E2B9C8CF5"
+    "6EDF019539349627DB2FD53D24B7C48665772E437D6C7F8CE442734A"
+    "F7CCB7AE837C264AE3A9BEB87F8A2FE9B8B5292E5A021FFF5E91479E"
+    "8CE7A28C2442C6F315180F93499A234DCF76E3FED135F9BB",
+    "2"
+ },
  {0,0} /* null sentinel */
 };
 
@@ -264,8 +265,11 @@ static NGConstant * new_ng( SRP_NGType ng_type, const char * n_hex, const char *
 
     if ( ng_type != SRP_NG_CUSTOM )
     {
-        n_hex = global_Ng_constants[ ng_type ].n_hex;
-        g_hex = global_Ng_constants[ ng_type ].g_hex;
+       int idx = ng_type;
+       if ( ng_type > SRP_NG_CUSTOM )
+          idx -= 1;
+        n_hex = global_Ng_constants[ idx ].n_hex;
+        g_hex = global_Ng_constants[ idx ].g_hex;
     }
         
     BN_hex2bn( &ng->N, n_hex );
@@ -1123,7 +1127,7 @@ static int ver_init( PyVerifier *self, PyObject *args, PyObject *kwds )
         return -1;
     }
     
-    if ( ng_type < SRP_NG_1024 || ng_type > SRP_NG_CUSTOM )
+    if ( ng_type < SRP_NG_1024 || ng_type >= SRP_NG_INVALID )
     {
         PyErr_SetString(PyExc_ValueError, "Invalid Prime Number Constant");
         return -1;
@@ -1205,7 +1209,7 @@ static int usr_init( PyUser *self, PyObject *args, PyObject *kwds )
         return -1;
     }
     
-    if ( ng_type < SRP_NG_1024 || ng_type > SRP_NG_CUSTOM )
+    if ( ng_type < SRP_NG_1024 || ng_type >= SRP_NG_INVALID )
     {
         PyErr_SetString(PyExc_ValueError, "Invalid Prime Number Constant");
         return -1;
@@ -1462,7 +1466,7 @@ static PyObject * py_create_salted_verification_key( PyObject *self, PyObject *a
         return NULL;
     }
     
-    if ( ng_type < SRP_NG_1024 || ng_type > SRP_NG_CUSTOM )
+    if ( ng_type < SRP_NG_1024 || ng_type >= SRP_NG_INVALID )
     {
         PyErr_SetString(PyExc_ValueError, "Invalid Prime Number Constant");
         return NULL;
@@ -1705,11 +1709,11 @@ init_srp(void)
     PyModule_AddObject(m, "User", (PyObject*) &PyUser_Type );
     
     PyModule_AddIntConstant(m, "NG_1024",   SRP_NG_1024);
-    PyModule_AddIntConstant(m, "NG_1536",   SRP_NG_1536);
     PyModule_AddIntConstant(m, "NG_2048",   SRP_NG_2048);
     PyModule_AddIntConstant(m, "NG_4096",   SRP_NG_4096);
     PyModule_AddIntConstant(m, "NG_8192",   SRP_NG_8192);
     PyModule_AddIntConstant(m, "NG_CUSTOM", SRP_NG_CUSTOM);
+    PyModule_AddIntConstant(m, "NG_1536",   SRP_NG_1536);
 
 
     PyModule_AddIntConstant(m, "SHA1",   SRP_SHA1);

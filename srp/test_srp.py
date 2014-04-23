@@ -137,7 +137,7 @@ class SRPTests( unittest.TestCase ):
 # Performance Testing
 #
 hash_map  = { 0 : 'SHA1  ', 1 : 'SHA224', 2 : 'SHA256', 3 : 'SHA384', 4 : 'SHA512' }
-prime_map = { 0 : 1024, 1 : 1536, 2 : 2048, 3 : 4096, 4 : 8192 }
+prime_map = { 0 : 1024, 5 : 1536, 1 : 2048, 2 : 4096, 3 : 8192 }
 
 username = 'testuser'
 password = 'testpassword'
