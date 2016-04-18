@@ -12,7 +12,7 @@ this_dir = os.path.dirname( os.path.abspath(__file__) )
 build_dir = os.path.join( os.path.dirname(this_dir), 'build' )
 
 if not os.path.exists( build_dir ):
-    print 'Please run "python setup.py build" prior to running tests'
+    print('Please run "python setup.py build" prior to running tests')
     sys.exit(1)
 
 plat_dirs = [ d for d in os.listdir('build') if d.startswith('lib') ]
