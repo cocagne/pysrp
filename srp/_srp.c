@@ -9,6 +9,37 @@
 #include <openssl/rand.h>
 
 /*****************************************************************************/
+/*                       Python3 Compatibility                               */
+/*****************************************************************************/
+
+#ifndef Py_TYPE
+    #define Py_TYPE(ob) (((PyObject*)(ob))->ob_type)
+#endif
+
+#if PY_MAJOR_VERSION >= 3
+    #define MOD_INIT(name) PyMODINIT_FUNC PyInit_##name(void)
+    #define MOD_DEF(ob, name, methods, doc) \
+          static struct PyModuleDef moduledef = { \
+            PyModuleDef_HEAD_INIT, name, doc, -1, methods, }; \
+          ob = PyModule_Create(&moduledef);
+
+    #define PyBytesOrPyStringFromString PyBytes_FromString
+    #define PyBytesOrPyStringFromStringAndSize PyBytes_FromStringAndSize
+    #define PyBytesOrPyStringCheck PyBytes_Check
+    #define PyBytesOrPyStringAsStringAndSize PyBytes_AsStringAndSize
+
+#else
+    #define MOD_INIT(name) PyMODINIT_FUNC init##name(void)
+    #define MOD_DEF(ob, name, methods, doc) \
+          ob = Py_InitModule3(name, methods, doc);
+
+    #define PyBytesOrPyStringFromString PyString_FromString
+    #define PyBytesOrPyStringFromStringAndSize PyString_FromStringAndSize
+    #define PyBytesOrPyStringCheck PyString_Check
+    #define PyBytesOrPyStringAsStringAndSize PyString_AsStringAndSize
+#endif
+
+/*****************************************************************************/
 /*                          Begin SRP Header                                 */
 /*****************************************************************************/
 
@@ -925,7 +956,7 @@ static void ver_dealloc( PyVerifier * self )
     if ( self->bytes_s != NULL )
         free( (char *)self->bytes_s );
 
-    self->ob_type->tp_free( (PyObject *) self );
+    Py_TYPE(self)->tp_free( (PyObject *) self );
 }
 
 
@@ -933,7 +964,7 @@ static void usr_dealloc( PyUser * self )
 {
     if ( self->usr != NULL )
         srp_user_delete( self->usr );
-    self->ob_type->tp_free( (PyObject *) self );
+    Py_TYPE(self)->tp_free( (PyObject *) self );
 }
 
 
@@ -1163,7 +1194,7 @@ static PyObject * ver_get_username( PyVerifier * self )
         return NULL;
     }
 
-    return PyString_FromString( srp_verifier_get_username(self->ver) );
+    return PyBytesOrPyStringFromString( srp_verifier_get_username(self->ver) );
 }
 
 
@@ -1174,7 +1205,7 @@ static PyObject * usr_get_username( PyUser * self )
         return NULL;
     }
 
-    return PyString_FromString( srp_user_get_username(self->usr) );
+    return PyBytesOrPyStringFromString( srp_user_get_username(self->usr) );
 }
 
 
@@ -1221,7 +1252,7 @@ static PyObject * ver_get_session_key( PyVerifier * self )
     {
         int          key_len;
         const char * u = (const char *)srp_verifier_get_session_key(self->ver, &key_len);
-        return PyString_FromStringAndSize(u, key_len);
+        return PyBytesOrPyStringFromStringAndSize(u, key_len);
     }
     else
         Py_RETURN_NONE;
@@ -1238,7 +1269,7 @@ static PyObject * usr_get_session_key( PyUser * self )
     {
         int          key_len;
         const char * u = (const char *) srp_user_get_session_key(self->usr, &key_len);
-        return PyString_FromStringAndSize(u, key_len);
+        return PyBytesOrPyStringFromStringAndSize(u, key_len);
     }
     else
         Py_RETURN_NONE;
@@ -1287,7 +1318,7 @@ static PyObject * ver_verify_session( PyVerifier * self, PyObject * args )
     if ( bytes_HAMK == NULL )
         Py_RETURN_NONE;
     else
-        return PyString_FromStringAndSize((const char *) bytes_HAMK,
+        return PyBytesOrPyStringFromStringAndSize((const char *) bytes_HAMK,
                                           srp_verifier_get_session_key_length( self->ver ));
 }
 
@@ -1338,7 +1369,7 @@ static PyObject * usr_process_challenge( PyUser * self, PyObject * args )
     if (bytes_M == NULL)
         Py_RETURN_NONE;
     else
-        return PyString_FromStringAndSize((const char *) bytes_M, len_M);
+        return PyBytesOrPyStringFromStringAndSize((const char *) bytes_M, len_M);
 }
 
 
@@ -1586,8 +1617,8 @@ static PyTypeObject PyUser_Type = {
 };
 
 
-PyMODINIT_FUNC
-init_srp(void)
+static PyObject *
+srpinit(void)
 {
     int       init_ok    = 0;
     PyObject *m          = NULL;
@@ -1597,7 +1628,7 @@ init_srp(void)
     os = PyImport_ImportModule("os");
 
     if (os == NULL)
-        return;
+        return NULL;
 
     py_urandom = PyObject_GetAttrString(os, "urandom");
 
@@ -1607,11 +1638,11 @@ init_srp(void)
         if ( args )
         {
             PyObject *randstr = PyObject_CallObject(py_urandom, args);
-            if ( randstr && PyString_Check(randstr))
+            if ( randstr && PyBytesOrPyStringCheck(randstr))
             {
                 char       *buff = NULL;
                 Py_ssize_t  slen = 0;
-                if (!PyString_AsStringAndSize(randstr, &buff, &slen))
+                if (!PyBytesOrPyStringAsStringAndSize(randstr, &buff, &slen))
                 {
                     srp_random_seed( (const unsigned char *)buff, slen );
                     init_ok = 1;
@@ -1628,17 +1659,17 @@ init_srp(void)
     if (!init_ok)
     {
         PyErr_SetString(PyExc_ImportError, "Initialization failed");
-        return;
+        return NULL;
     }
 
 
     if (PyType_Ready(&PyVerifier_Type) < 0 || PyType_Ready(&PyUser_Type) < 0)
-        return;
+        return NULL;
 
-    m = Py_InitModule3("srp._srp", srp_module_methods,"SRP-6a implementation");
+    MOD_DEF(m, "srp._srp", srp_module_methods, "SRP-6a implementation");
 
     if (m == NULL)
-        return;
+        return NULL;
 
     Py_INCREF(&PyVerifier_Type);
     Py_INCREF(&PyUser_Type);
@@ -1659,4 +1690,18 @@ init_srp(void)
     PyModule_AddIntConstant(m, "SHA384", SRP_SHA384);
     PyModule_AddIntConstant(m, "SHA512", SRP_SHA512);
 
+    return m;
 }
+
+
+#if PY_MAJOR_VERSION < 3
+    PyMODINIT_FUNC init_srp(void)
+    {
+        srpinit();
+    }
+#else
+    PyMODINIT_FUNC init_srp(void)
+    {
+        return srpinit();
+    }
+#endif
