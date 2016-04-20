@@ -15,7 +15,34 @@
 
 import hashlib
 import os
-import binascii
+import sys
+
+
+def strtobytes(string):
+    if isinstance(string, str):
+        return string.encode()
+    else:
+        return string
+
+
+def join_if_needed(obj):
+    if isinstance(obj, str):
+        return ''.join(obj)
+    else:
+        return obj
+
+if sys.version_info.major < 3:
+    def bytearray():
+        return list()
+else:
+    def chr(obj):
+        return obj
+
+
+    def ord(obj):
+        return obj
+    long = int
+
 
 SHA1   = 0
 SHA224 = 1
@@ -143,16 +170,16 @@ def bytes_to_long(s):
     
     
 def long_to_bytes(n):
-    l = list()
+    l = bytearray()
     x = 0
     off = 0
     while x != n:
         b = (n >> off) & 0xFF
         l.append( chr(b) )
-        x = x | (b << off)
+        x |= b << off
         off += 8
     l.reverse()
-    return ''.join(l)
+    return join_if_needed(l)
 
     
 def get_random( nbytes ):
@@ -175,7 +202,7 @@ def H( hash_class, *args, **kwargs ):
     
     for s in args:
         if s is not None:
-            h.update( long_to_bytes(s) if isinstance(s, (long, int)) else s )
+            h.update( long_to_bytes(s) if isinstance(s, (long, int)) else strtobytes(s) )
 
     return long( h.hexdigest(), 16 )
 
@@ -201,7 +228,10 @@ def HNxorg( hash_class, N, g ):
     hN = hash_class( long_to_bytes(N) ).digest()
     hg = hash_class( long_to_bytes(g) ).digest()
 
-    return ''.join( chr( ord(hN[i]) ^ ord(hg[i]) ) for i in range(0,len(hN)) )
+    res = bytearray()
+    for i in range(0, len(hN)):
+        res.append(chr( ord(hN[i]) ^ ord(hg[i]) ))
+    return join_if_needed( res )
     
     
     
@@ -226,7 +256,7 @@ def create_salted_verification_key( username, password, hash_alg=SHA1, ng_type=N
 def calculate_M( hash_class, N, g, I, s, A, B, K ):
     h = hash_class()
     h.update( HNxorg( hash_class, N, g ) )
-    h.update( hash_class(I).digest() )
+    h.update( hash_class(strtobytes(I)).digest() )
     h.update( long_to_bytes(s) )
     h.update( long_to_bytes(A) )
     h.update( long_to_bytes(B) )
