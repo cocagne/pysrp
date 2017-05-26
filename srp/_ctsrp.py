@@ -143,7 +143,7 @@ elif 'win' in platform:
         except:
             pass
 else:
-    dlls.append( ctypes.cdll.LoadLibrary('libssl.so') )
+    dlls.append( ctypes.cdll.LoadLibrary('libssl.so.10') )
 
 
 class BIGNUM_Struct (ctypes.Structure):
