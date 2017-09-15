@@ -242,8 +242,11 @@ class Verifier (object):
 
         N,g        = get_ng( ng_type, n_hex, g_hex )
         hash_class = _hash_map[ hash_alg ]
-        k          = H( hash_class, N, g )
 
+	# g padded to length of N
+        g_padded = ('\0' * (len(long_to_bytes(N)) - len(long_to_bytes(g)))) + long_to_bytes(g)
+        k          = H( hash_class, long_to_bytes(N), g_padded )
+      
         self.hash_class = hash_class
         self.N          = N
         self.g          = g
@@ -307,7 +310,10 @@ class User (object):
             raise ValueError("32 bytes required for bytes_a")
         N,g        = get_ng( ng_type, n_hex, g_hex )
         hash_class = _hash_map[ hash_alg ]
-        k          = H( hash_class, N, g )
+
+        # g padded to length of N
+        g_padded = ('\0' * (len(long_to_bytes(N)) - len(long_to_bytes(g)))) + long_to_bytes(g)
+        k          = H( hash_class, long_to_bytes(N), g_padded )
 
         self.I     = username
         self.p     = password
