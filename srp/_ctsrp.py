@@ -201,6 +201,9 @@ load_func( 'BN_clear', [ BIGNUM ], None )
 load_func( 'BN_CTX_new',  []        , BN_CTX )
 load_func( 'BN_CTX_free', [ BN_CTX ], None   )
 
+load_func( 'BN_set_flags', [ BIGNUM, ctypes.c_int ], None )
+BN_FLG_CONSTTIME = 0x04
+
 load_func( 'BN_cmp',      [ BIGNUM, BIGNUM ], ctypes.c_int )
 
 load_func( 'BN_num_bits', [ BIGNUM ], ctypes.c_int )
@@ -292,6 +295,7 @@ def calculate_x( hash_class, dest, salt, username, password ):
         username = six.b('')
     up = hash_class(username + six.b(':') + password).digest()
     H_bn_str( hash_class, dest, salt, up )
+    BN_set_flags(dest, BN_FLG_CONSTTIME)
 
 
 def update_hash( ctx, n ):
@@ -430,6 +434,7 @@ class Verifier (object):
                 bytes_to_bn( self.b, bytes_b )
             else:
                 BN_rand(self.b, 256, 0, 0)
+            BN_set_flags(self.b, BN_FLG_CONSTTIME)
 
             # B = kv + g^b
             BN_mul(self.tmp1, k, self.v, self.ctx)
@@ -541,6 +546,7 @@ class User (object):
         if bytes_A:
             bytes_to_bn( self.A, bytes_A )
         else:
+            BN_set_flags(self.a, BN_FLG_CONSTTIME)
             BN_mod_exp(self.A, g, self.a, N, self.ctx)
 
 
