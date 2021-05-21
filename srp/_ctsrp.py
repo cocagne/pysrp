@@ -146,7 +146,7 @@ dlls = list()
 
 platform = sys.platform
 if platform == 'darwin':
-    dlls.append( ctypes.cdll.LoadLibrary('libssl.dylib') )
+    dlls.append( ctypes.cdll.LoadLibrary('libssl.32.dylib') )
 elif 'win' in platform:
     for d in ('libeay32.dll', 'libssl32.dll', 'ssleay32.dll'):
         try:
