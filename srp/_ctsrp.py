@@ -174,24 +174,22 @@ def H_bn_bn( hash_class, n1: BigNumber, n2 : BigNumber, width ) -> BigNumber:
     return BigNumber(hexstr=h.hexdigest().encode())
 
 
-def H_bn_str( hash_class, dest, n, s ):
+def H_bn_str( hash_class, n, s):
     h   = hash_class()
-    bin = ctypes.create_string_buffer( BN_num_bytes(n) )
-    BN_bn2bin(n, bin)
-    h.update( bin.raw )
-    h.update( s )
-    d = h.digest()
-    BN_bin2bn(d, len(d), dest)
+    bin = n.to_bytes()
+    h.update(bin)
+    h.update(s)
+    return BigNumber(hexstr=h.hexdigest().encode())
 
-
-def calculate_x( hash_class, dest, salt, username, password ):
+def calculate_x(hash_class, salt, username, password ):
     username = username.encode() if hasattr(username, 'encode') else username
     password = password.encode() if hasattr(password, 'encode') else password
     if _no_username_in_x:
         username = six.b('')
     up = hash_class(username + six.b(':') + password).digest()
-    H_bn_str( hash_class, dest, salt, up )
-    BN_set_flags(dest, BN_FLG_CONSTTIME)
+    x = H_bn_str( hash_class, salt, up)
+    x.consttime()
+    return x
 
 
 def calculate_M( hash_class, N, g, I, s, A, B, K ):
@@ -372,18 +370,18 @@ class User (object):
             raise ValueError("32 bytes required for bytes_a")
         self.username = username
         self.password = password
-        self.a     = BN_new()
-        self.A     = BN_new()
-        self.B     = BN_new()
-        self.s     = BN_new()
-        self.S     = BN_new()
-        self.u     = BN_new()
-        self.x     = BN_new()
-        self.v     = BN_new()
-        self.tmp1  = BN_new()
-        self.tmp2  = BN_new()
-        self.tmp3  = BN_new()
-        self.ctx   = BN_CTX_new()
+        self.ctx   = BigNumberCtx()
+        self.a     = BigNumber(ctx=self.ctx)
+        self.A     = BigNumber(ctx=self.ctx)
+        self.B     = BigNumber(ctx=self.ctx)
+        self.s     = BigNumber(ctx=self.ctx)
+        self.S     = BigNumber(ctx=self.ctx)
+        self.u     = BigNumber(ctx=self.ctx)
+        self.x     = BigNumber(ctx=self.ctx)
+        self.v     = BigNumber(ctx=self.ctx)
+        self.tmp1  = BigNumber(ctx=self.ctx)
+        self.tmp2  = BigNumber(ctx=self.ctx)
+        self.tmp3  = BigNumber(ctx=self.ctx)
         self.M     = None
         self.K     = None
         self.H_AMK = None
@@ -398,36 +396,15 @@ class User (object):
         self.k          = k
 
         if bytes_a:
-            bytes_to_bn( self.a, bytes_a )
+            self.a = BigNumber(srcbytes=bytes_a, ctx=self.ctx)
         else:
-            BN_rand(self.a, 256, 0, 0)
+            self.a = BigNumber.rand(256, 0, 0, ctx=self.ctx)
 
         if bytes_A:
-            bytes_to_bn( self.A, bytes_A )
+            self.A = BigNumber(srcbytes=bytes_A, ctx=self.ctx)
         else:
-            BN_set_flags(self.a, BN_FLG_CONSTTIME)
-            BN_mod_exp(self.A, g, self.a, N, self.ctx)
-
-
-
-    def __del__(self):
-        if not hasattr(self, 'a'):
-            return # __init__ threw exception. no clean up required
-        BN_free(self.a)
-        BN_free(self.A)
-        BN_free(self.B)
-        BN_free(self.s)
-        BN_free(self.S)
-        BN_free(self.u)
-        BN_free(self.x)
-        BN_free(self.v)
-        BN_free(self.N)
-        BN_free(self.g)
-        BN_free(self.k)
-        BN_free(self.tmp1)
-        BN_free(self.tmp2)
-        BN_free(self.tmp3)
-        BN_CTX_free(self.ctx)
+            self.a.consttime()
+            self.A = pow(g, self.a, N)
 
 
     def authenticated(self):
@@ -439,7 +416,7 @@ class User (object):
 
 
     def get_ephemeral_secret(self):
-        return bn_to_bytes(self.a)
+        return self.a.to_bytes()
 
 
     def get_session_key(self):
@@ -447,7 +424,7 @@ class User (object):
 
 
     def start_authentication(self):
-        return (self.username, bn_to_bytes(self.A))
+        return (self.username, self.A.to_bytes())
 
 
     # Returns M or None if SRP-6a safety check is violated
@@ -458,33 +435,32 @@ class User (object):
         g = self.g
         k = self.k
 
-        bytes_to_bn( self.s, bytes_s )
-        bytes_to_bn( self.B, bytes_B )
+        self.s = BigNumber(srcbytes=bytes_s, ctx=self.ctx)
+        self.B = BigNumber(srcbytes=bytes_B, ctx=self.ctx)
 
         # SRP-6a safety check
-        if BN_is_zero(self.B):
+        if self.B.is_zero():
             return None
 
-        H_bn_bn(hash_class, self.u, self.A, self.B, width=BN_num_bytes(N))
+        self.u = H_bn_bn(hash_class, self.A, self.B, width=N.num_bytes)
 
         # SRP-6a safety check
-        if BN_is_zero(self.u):
+        if self.u.is_zero():
             return None
 
-        calculate_x( hash_class, self.x, self.s, self.username, self.password )
-
-        BN_mod_exp(self.v, g, self.x, N, self.ctx)
+        self.x = calculate_x( hash_class, self.s, self.username, self.password )
+        self.v = pow(g, self.x, self.N)
 
         # S = (B - k*(g^x)) ^ (a + ux)
 
-        BN_mul(self.tmp1, self.u, self.x, self.ctx)
-        BN_add(self.tmp2, self.a, self.tmp1)            # tmp2 = (a + ux)
-        BN_mod_exp(self.tmp1, g, self.x, N, self.ctx)
-        BN_mul(self.tmp3, k, self.tmp1, self.ctx)       # tmp3 = k*(g^x)
-        BN_sub(self.tmp1, self.B, self.tmp3)            # tmp1 = (B - K*(g^x))
-        BN_mod_exp(self.S, self.tmp1, self.tmp2, N, self.ctx)
+        tmp1 = self.u * self.x
+        tmp2 = self.a + tmp1
+        tmp1 = pow(g, self.x, N)
+        tmp3 = k * tmp1
+        tmp1 = self.B - tmp3
+        self.S = pow(tmp1, tmp2, N)
 
-        self.K     = hash_class( bn_to_bytes(self.S) ).digest()
+        self.K     = hash_class(self.S.to_bytes()).digest()
         self.M     = calculate_M( hash_class, N, g, self.username, self.s, self.A, self.B, self.K )
         self.H_AMK = calculate_H_AMK( hash_class, self.A, self.M, self.K )
 

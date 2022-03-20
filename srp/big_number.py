@@ -188,6 +188,12 @@ class BigNumber():
         result = BigNumber(ctx = self._ctx)
         BN_add(result._bn, self._bn, other._bn)
         return result
+    
+    def __sub__(self, other: "BigNumber") -> "BigNumber":
+        # TODO asssert type of other
+        result = BigNumber(ctx = self._ctx)
+        BN_sub(result._bn, self._bn, other._bn)
+        return result
 
     @staticmethod
     def rand(bits, top, bottom, ctx = None) -> "BigNumber":
