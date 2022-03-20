@@ -2,4 +2,6 @@ build/
 dist/
 MANIFEST
 *.pyc
-
+venv/
+__pycache__/
+.vscode/
