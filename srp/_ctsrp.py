@@ -17,10 +17,10 @@ from __future__ import division
 import os
 import sys
 import hashlib
-import random
 import ctypes
 import time
 import six
+from .big_number import BigNumber, BigNumberCtx
 
 
 _rfc5054_compat = False
@@ -142,104 +142,6 @@ six.b('13'))
 #G_HEX  = "2"
 #HNxorg = None
 
-dlls = list()
-
-platform = sys.platform
-if platform == 'darwin':
-    dlls.append( ctypes.cdll.LoadLibrary('libssl.32.dylib') )
-elif 'win' in platform:
-    for d in ('libeay32.dll', 'libssl32.dll', 'ssleay32.dll'):
-        try:
-            dlls.append( ctypes.cdll.LoadLibrary(d) )
-        except:
-            pass
-else:
-    try:
-        dlls.append( ctypes.cdll.LoadLibrary('libssl.so.1.1.0') )
-    except OSError:
-        dlls.append( ctypes.cdll.LoadLibrary('libssl.so') )
-
-class BIGNUM_Struct (ctypes.Structure):
-    _fields_ = [ ("d",     ctypes.c_void_p),
-                 ("top",   ctypes.c_int),
-                 ("dmax",  ctypes.c_int),
-                 ("neg",   ctypes.c_int),
-                 ("flags", ctypes.c_int) ]
-
-
-class BN_CTX_Struct (ctypes.Structure):
-    _fields_ = [ ("_", ctypes.c_byte) ]
-
-
-BIGNUM = ctypes.POINTER( BIGNUM_Struct )
-BN_CTX = ctypes.POINTER( BN_CTX_Struct )
-
-
-def load_func( name, args, returns = ctypes.c_int):
-    d = sys.modules[ __name__ ].__dict__
-    f = None
-
-    for dll in dlls:
-        try:
-            f = getattr(dll, name)
-            f.argtypes = args
-            f.restype  = returns
-            d[ name ] = f
-            return
-        except:
-            pass
-    raise ImportError('Unable to load required functions from SSL dlls')
-
-
-load_func( 'BN_new',   [],         BIGNUM )
-load_func( 'BN_free',  [ BIGNUM ], None )
-load_func( 'BN_clear', [ BIGNUM ], None )
-
-load_func( 'BN_CTX_new',  []        , BN_CTX )
-load_func( 'BN_CTX_free', [ BN_CTX ], None   )
-
-load_func( 'BN_set_flags', [ BIGNUM, ctypes.c_int ], None )
-BN_FLG_CONSTTIME = 0x04
-
-load_func( 'BN_cmp',      [ BIGNUM, BIGNUM ], ctypes.c_int )
-
-load_func( 'BN_num_bits', [ BIGNUM ], ctypes.c_int )
-
-load_func( 'BN_add',     [ BIGNUM, BIGNUM, BIGNUM ] )
-load_func( 'BN_sub',     [ BIGNUM, BIGNUM, BIGNUM ] )
-load_func( 'BN_mul',     [ BIGNUM, BIGNUM, BIGNUM, BN_CTX ] )
-load_func( 'BN_div',     [ BIGNUM, BIGNUM, BIGNUM, BIGNUM, BN_CTX ] )
-load_func( 'BN_mod_exp', [ BIGNUM, BIGNUM, BIGNUM, BIGNUM, BN_CTX ] )
-
-load_func( 'BN_rand',    [ BIGNUM, ctypes.c_int, ctypes.c_int, ctypes.c_int ] )
-
-load_func( 'BN_bn2bin',  [ BIGNUM, ctypes.c_char_p ] )
-load_func( 'BN_bin2bn',  [ ctypes.c_char_p, ctypes.c_int, BIGNUM ], BIGNUM )
-
-load_func( 'BN_hex2bn',  [ ctypes.POINTER(BIGNUM), ctypes.c_char_p ] )
-load_func( 'BN_bn2hex',  [ BIGNUM ], ctypes.c_char_p )
-
-load_func( 'CRYPTO_free', [ ctypes.c_char_p ] )
-
-load_func( 'RAND_seed', [ ctypes.c_char_p, ctypes.c_int ] )
-
-
-def BN_num_bytes(a):
-    return ((BN_num_bits(a)+7)//8)
-
-
-def BN_mod(rem,m,d,ctx):
-    return BN_div(None, rem, m, d, ctx)
-
-
-def BN_is_zero( n ):
-    return n[0].top == 0
-
-
-def bn_to_bytes( n ):
-    b = ctypes.create_string_buffer( BN_num_bytes(n) )
-    BN_bn2bin(n, b)
-    return b.raw
 
 
 def bytes_to_bn( dest_bn, bytes ):
@@ -259,20 +161,17 @@ def H_bn( hash_class, dest, n ):
     BN_bin2bn(d, len(d), dest)
 
 
-def H_bn_bn( hash_class, dest, n1, n2, width ):
+def H_bn_bn( hash_class, n1: BigNumber, n2 : BigNumber, width ) -> BigNumber:
     h    = hash_class()
-    bin1 = ctypes.create_string_buffer( BN_num_bytes(n1) )
-    bin2 = ctypes.create_string_buffer( BN_num_bytes(n2) )
-    BN_bn2bin(n1, bin1)
-    BN_bn2bin(n2, bin2)
+    bin1 = n1.to_bytes()
+    bin2 = n2.to_bytes()
     if _rfc5054_compat:
-        h.update(bytes(width - len(bin1.raw)))
-    h.update( bin1.raw )
+        h.update(bytes(width - len(bin1)))
+    h.update( bin1 )
     if _rfc5054_compat:
-        h.update(bytes(width - len(bin2.raw)))
-    h.update( bin2.raw )
-    d = h.digest()
-    BN_bin2bn(d, len(d), dest)
+        h.update(bytes(width - len(bin2)))
+    h.update( bin2 )
+    return BigNumber(hexstr=h.hexdigest().encode())
 
 
 def H_bn_str( hash_class, dest, n, s ):
@@ -295,43 +194,34 @@ def calculate_x( hash_class, dest, salt, username, password ):
     BN_set_flags(dest, BN_FLG_CONSTTIME)
 
 
-def update_hash( ctx, n ):
-    buff = ctypes.create_string_buffer( BN_num_bytes(n) )
-    BN_bn2bin(n, buff)
-    ctx.update( buff.raw )
-
-
 def calculate_M( hash_class, N, g, I, s, A, B, K ):
     I = I.encode() if hasattr(I, 'encode') else I
     h = hash_class()
     h.update( HNxorg( hash_class, N, g ) )
     h.update( hash_class(I).digest() )
-    update_hash( h, s )
-    update_hash( h, A )
-    update_hash( h, B )
+    h.update(s.to_bytes())
+    h.update(A.to_bytes())
+    h.update(B.to_bytes())
     h.update( K )
     return h.digest()
 
 
 def calculate_H_AMK( hash_class, A, M, K ):
     h = hash_class()
-    update_hash( h, A )
+    h.update(A.to_bytes())
     h.update( M )
     h.update( K )
     return h.digest()
 
 
 def HNxorg( hash_class, N, g ):
-    bN = ctypes.create_string_buffer( BN_num_bytes(N) )
-    bg = ctypes.create_string_buffer( BN_num_bytes(g) )
-
-    BN_bn2bin(N, bN)
-    BN_bn2bin(g, bg)
+    bN = N.to_bytes()
+    bg = g.to_bytes()
 
     padding = len(bN) - len(bg) if _rfc5054_compat else 0
 
-    hN = hash_class( bN.raw ).digest()
-    hg = hash_class( b''.join([ b'\0'*padding, bg.raw ]) ).digest()
+    hN = hash_class( bN ).digest()
+    hg = hash_class( b''.join([ b'\0'*padding, bg ]) ).digest()
 
     return six.b( ''.join( chr( six.indexbytes(hN, i) ^ six.indexbytes(hg, i) ) for i in range(0,len(hN)) ) )
 
@@ -339,16 +229,13 @@ def HNxorg( hash_class, N, g ):
 def get_ngk( hash_class, ng_type, n_hex, g_hex, ctx ):
     if ng_type < NG_CUSTOM:
         n_hex, g_hex = _ng_const[ ng_type ]
-    N = BN_new()
-    g = BN_new()
-    k = BN_new()
+    N = BigNumber(hexstr = n_hex, ctx=ctx)
+    g = BigNumber(hexstr = g_hex, ctx=ctx)
+    k = BigNumber(ctx=ctx)
 
-    BN_hex2bn( N, n_hex )
-    BN_hex2bn( g, g_hex )
-    H_bn_bn(hash_class, k, N, g, width=BN_num_bytes(N))
+    k = H_bn_bn(hash_class, N, g, width=N.num_bytes())
     if _rfc5054_compat:
-        BN_mod(k, k, N, ctx)
-
+        k = k % N
     return N, g, k
 
 
@@ -391,17 +278,16 @@ class Verifier (object):
             raise ValueError("Both n_hex and g_hex are required when ng_type = NG_CUSTOM")
         if bytes_b and len(bytes_b) != 32:
             raise ValueError("32 bytes required for bytes_b")
-        self.A     = BN_new()
-        self.B     = BN_new()
+
+        self.ctx   = BigNumberCtx()
+        self.A     = BigNumber(srcbytes = bytes_A, ctx=self.ctx)
+        self.B     = BigNumber(ctx=self.ctx)
         self.K     = None
-        self.S     = BN_new()
-        self.u     = BN_new()
-        self.b     = BN_new()
-        self.s     = BN_new()
-        self.v     = BN_new()
-        self.tmp1  = BN_new()
-        self.tmp2  = BN_new()
-        self.ctx   = BN_CTX_new()
+        self.S     = BigNumber(ctx=self.ctx)
+        self.u     = BigNumber(ctx=self.ctx)
+        self.b     = BigNumber(ctx=self.ctx)
+        self.s     = BigNumber(srcbytes = bytes_s, ctx=self.ctx)
+        self.v     = BigNumber(srcbytes = bytes_v, ctx=self.ctx)
         self.I     = username
         self.M     = None
         self.H_AMK = None
@@ -417,57 +303,34 @@ class Verifier (object):
         self.g          = g
         self.k          = k
 
-        bytes_to_bn( self.s, bytes_s )
-        bytes_to_bn( self.v, bytes_v )
-        bytes_to_bn( self.A, bytes_A )
-
         # SRP-6a safety check
-        BN_mod(self.tmp1, self.A, N, self.ctx)
-
-        if BN_is_zero(self.tmp1):
+        tmp1 = self.A % N
+        if tmp1.is_zero():
             self.safety_failed = True
         else:
             if bytes_b:
-                bytes_to_bn( self.b, bytes_b )
+                self.b = BigNumber(srcbytes=bytes_b, ctx=self.ctx)
             else:
-                BN_rand(self.b, 256, 0, 0)
-            BN_set_flags(self.b, BN_FLG_CONSTTIME)
+                self.b = BigNumber.rand(256, 0, 0, ctx=self.ctx)
+            self.b.consttime()
 
             # B = kv + g^b
-            BN_mul(self.tmp1, k, self.v, self.ctx)
-            BN_mod_exp(self.tmp2, g, self.b, N, self.ctx)
-            BN_add(self.B, self.tmp1, self.tmp2)
-            BN_mod(self.B, self.B, N, self.ctx)
+            tmp1 = self.k * self.v
+            tmp2 = pow(g, self.b, N)
+            self.B = tmp1 + tmp2
+            self.B = self.B % N
 
-            H_bn_bn(hash_class, self.u, self.A, self.B, width=BN_num_bytes(N))
+            self.u = H_bn_bn(hash_class, self.A, self.B, width=N.num_bytes())
 
             # S = (A *(v^u)) ^ b
-            BN_mod_exp(self.tmp1, self.v, self.u, N, self.ctx)
-            BN_mul(self.tmp2, self.A, self.tmp1, self.ctx)
-            BN_mod_exp(self.S, self.tmp2, self.b, N, self.ctx)
+            tmp1 = pow(self.v, self.u, N)
+            tmp2 = self.A * tmp1
+            self.S = pow(tmp2, self.b, N)
 
-            self.K = hash_class( bn_to_bytes(self.S) ).digest()
+            self.K = hash_class(self.S.to_bytes()).digest()
 
             self.M     = calculate_M( hash_class, N, g, self.I, self.s, self.A, self.B, self.K )
             self.H_AMK = calculate_H_AMK( hash_class, self.A, self.M, self.K )
-
-
-    def __del__(self):
-        if not hasattr(self, 'A'):
-            return # __init__ threw exception. no clean up required
-        BN_free(self.A)
-        BN_free(self.B)
-        BN_free(self.S)
-        BN_free(self.u)
-        BN_free(self.b)
-        BN_free(self.s)
-        BN_free(self.v)
-        BN_free(self.N)
-        BN_free(self.g)
-        BN_free(self.k)
-        BN_free(self.tmp1)
-        BN_free(self.tmp2)
-        BN_CTX_free(self.ctx)
 
 
     def authenticated(self):
@@ -479,7 +342,7 @@ class Verifier (object):
 
 
     def get_ephemeral_secret(self):
-        return bn_to_bytes(self.b)
+        return self.b.to_bytes()
 
 
     def get_session_key(self):
@@ -491,7 +354,7 @@ class Verifier (object):
         if self.safety_failed:
             return None, None
         else:
-            return (bn_to_bytes(self.s), bn_to_bytes(self.B))
+            return self.s.to_bytes(), self.B.to_bytes()
 
 
     def verify_session(self, user_M):
@@ -633,9 +496,3 @@ class User (object):
         if self.H_AMK == host_HAMK:
             self._authenticated = True
 
-
-
-#---------------------------------------------------------
-# Init
-#
-RAND_seed( os.urandom(32), 32 )
