@@ -279,21 +279,18 @@ class Verifier (object):
         if bytes_b and len(bytes_b) != 32:
             raise ValueError("32 bytes required for bytes_b")
 
+        self._authenticated = False
+        self.safety_failed = False
         self.ctx   = BigNumberCtx()
-        self.A     = BigNumber(srcbytes = bytes_A, ctx=self.ctx)
-        self.B     = BigNumber(ctx=self.ctx)
-        self.K     = None
-        self.S     = BigNumber(ctx=self.ctx)
-        self.u     = BigNumber(ctx=self.ctx)
+        self.I     = username
         self.b     = BigNumber(ctx=self.ctx)
         self.s     = BigNumber(srcbytes = bytes_s, ctx=self.ctx)
-        self.v     = BigNumber(srcbytes = bytes_v, ctx=self.ctx)
-        self.I     = username
+        self.B     = BigNumber(ctx=self.ctx)
+        self.K     = None
         self.M     = None
         self.H_AMK = None
-        self._authenticated = False
 
-        self.safety_failed = False
+
 
         hash_class = _hash_map[ hash_alg ]
         N,g,k      = get_ngk( hash_class, ng_type, n_hex, g_hex, self.ctx )
@@ -303,8 +300,9 @@ class Verifier (object):
         self.g          = g
         self.k          = k
 
+        A     = BigNumber(srcbytes = bytes_A, ctx=self.ctx)
         # SRP-6a safety check
-        tmp1 = self.A % N
+        tmp1 = A % N
         if tmp1.is_zero():
             self.safety_failed = True
         else:
@@ -315,22 +313,23 @@ class Verifier (object):
             self.b.consttime()
 
             # B = kv + g^b
-            tmp1 = self.k * self.v
+            v    = BigNumber(srcbytes = bytes_v, ctx=self.ctx)
+            tmp1 = self.k * v
             tmp2 = pow(g, self.b, N)
             self.B = tmp1 + tmp2
             self.B = self.B % N
 
-            self.u = H_bn_bn(hash_class, self.A, self.B, width=N.num_bytes())
+            u = H_bn_bn(hash_class, A, self.B, width=N.num_bytes())
 
             # S = (A *(v^u)) ^ b
-            tmp1 = pow(self.v, self.u, N)
-            tmp2 = self.A * tmp1
-            self.S = pow(tmp2, self.b, N)
+            tmp1 = pow(v, u, N)
+            tmp2 = A * tmp1
+            S = pow(tmp2, self.b, N)
 
-            self.K = hash_class(self.S.to_bytes()).digest()
+            self.K = hash_class(S.to_bytes()).digest()
 
-            self.M     = calculate_M( hash_class, N, g, self.I, self.s, self.A, self.B, self.K )
-            self.H_AMK = calculate_H_AMK( hash_class, self.A, self.M, self.K )
+            self.M     = calculate_M( hash_class, N, g, self.I, self.s, A, self.B, self.K )
+            self.H_AMK = calculate_H_AMK( hash_class, A, self.M, self.K )
 
 
     def authenticated(self):
