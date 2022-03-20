@@ -14,11 +14,7 @@
   # v    Password verifier
 
 from __future__ import division
-import os
-import sys
 import hashlib
-import ctypes
-import time
 import six
 from .big_number import BigNumber, BigNumberCtx
 
@@ -141,25 +137,6 @@ six.b('13'))
 #N_HEX  = "AC6BDB41324A9A9BF166DE5E1389582FAF72B6651987EE07FC3192943DB56050A37329CBB4A099ED8193E0757767A13DD52312AB4B03310DCD7F48A9DA04FD50E8083969EDB767B0CF6095179A163AB3661A05FBD5FAAAE82918A9962F0B93B855F97993EC975EEAA80D740ADBF4FF747359D041D5C33EA71D281E446B14773BCA97B43A23FB801676BD207A436C6481F1D2B9078717461A5B9D32E688F87748544523B524B0D57D5EA77A2775D2ECFA032CFBDBF52FB3786160279004E57AE6AF874E7303CE53299CCC041C7BC308D82A5698F3A8D0C38271AE35F8E9DBFBB694B5C803D89F7AE435DE236D525F54759B65E372FCD68EF20FA7111F9E4AFF73"
 #G_HEX  = "2"
 #HNxorg = None
-
-
-
-def bytes_to_bn( dest_bn, bytes ):
-    BN_bin2bn(bytes, len(bytes), dest_bn)
-
-
-def H_str( hash_class, dest_bn, s ):
-    d = hash_class(s).digest()
-    buff = ctypes.create_string_buffer( s )
-    BN_bin2bn(d, len(d), dest)
-
-
-def H_bn( hash_class, dest, n ):
-    bin = ctypes.create_string_buffer( BN_num_bytes(n) )
-    BN_bn2bin(n, bin)
-    d = hash_class( bin.raw ).digest()
-    BN_bin2bn(d, len(d), dest)
-
 
 def H_bn_bn( hash_class, n1: BigNumber, n2 : BigNumber, width ) -> BigNumber:
     h    = hash_class()
