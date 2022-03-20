@@ -112,7 +112,9 @@ class SRPTests( unittest.TestCase ):
 
     def test_mix4(self):
         self.doit( _ctsrp, _ctsrp, _pysrp )
-
+    
+    def test_mix5(self):
+        self.doit(_pysrp, _ctsrp, _pysrp)
 
     def test_hash_SHA512(self):
         self.doit( _ctsrp, _ctsrp, _ctsrp, hash_alg=srp.SHA512 )
@@ -278,21 +280,22 @@ def print_thread_performance():
         print('   Thread Count {0:>2}: {1:8f}'.format(nthreads, performance_test(_ctsrp, srp.SHA1, srp.NG_2048, niter, nthreads)/niter))
 
 
-print('*'*60)
-print('*')
-print('* Testing Implementation')
-print('*')
-suite = unittest.TestLoader().loadTestsFromTestCase(SRPTests)
-unittest.TextTestRunner(verbosity=1).run(suite)
+if __name__ == '__main__':
+    print('*'*60)
+    print('*')
+    print('* Testing Implementation')
+    print('*')
+    suite = unittest.TestLoader().loadTestsFromTestCase(SRPTests)
+    unittest.TextTestRunner(verbosity=1).run(suite)
 
-print('*'*60)
-print('*')
-print('* Performance Testing')
-print('*')
-print_thread_performance()
-print_performance_table()
-print_default_timings()
-#---------------------------------------------------------------
+    print('*'*60)
+    print('*')
+    print('* Performance Testing')
+    print('*')
+    print_thread_performance()
+    print_performance_table()
+    print_default_timings()
+    #---------------------------------------------------------------
 
-# Pause briefly to ensure no background threads are still executing
-time.sleep(0.1)
+    # Pause briefly to ensure no background threads are still executing
+    time.sleep(0.1)
