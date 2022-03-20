@@ -361,16 +361,6 @@ class User (object):
         self.ctx   = BigNumberCtx()
         self.a     = BigNumber(ctx=self.ctx)
         self.A     = BigNumber(ctx=self.ctx)
-        self.B     = BigNumber(ctx=self.ctx)
-        self.s     = BigNumber(ctx=self.ctx)
-        self.S     = BigNumber(ctx=self.ctx)
-        self.u     = BigNumber(ctx=self.ctx)
-        self.x     = BigNumber(ctx=self.ctx)
-        self.v     = BigNumber(ctx=self.ctx)
-        self.tmp1  = BigNumber(ctx=self.ctx)
-        self.tmp2  = BigNumber(ctx=self.ctx)
-        self.tmp3  = BigNumber(ctx=self.ctx)
-        self.M     = None
         self.K     = None
         self.H_AMK = None
         self._authenticated = False
@@ -423,36 +413,36 @@ class User (object):
         g = self.g
         k = self.k
 
-        self.s = BigNumber(srcbytes=bytes_s, ctx=self.ctx)
-        self.B = BigNumber(srcbytes=bytes_B, ctx=self.ctx)
+        s = BigNumber(srcbytes=bytes_s, ctx=self.ctx)
+        B = BigNumber(srcbytes=bytes_B, ctx=self.ctx)
 
         # SRP-6a safety check
-        if self.B.is_zero():
+        if B.is_zero():
             return None
 
-        self.u = H_bn_bn(hash_class, self.A, self.B, width=N.num_bytes)
+        u = H_bn_bn(hash_class, self.A, B, width=N.num_bytes)
 
         # SRP-6a safety check
-        if self.u.is_zero():
+        if u.is_zero():
             return None
 
-        self.x = calculate_x( hash_class, self.s, self.username, self.password )
-        self.v = pow(g, self.x, self.N)
+        x = calculate_x( hash_class, s, self.username, self.password )
+        v = pow(g, x, N)
 
         # S = (B - k*(g^x)) ^ (a + ux)
 
-        tmp1 = self.u * self.x
+        tmp1 = u * x
         tmp2 = self.a + tmp1
-        tmp1 = pow(g, self.x, N)
+        tmp1 = pow(g, x, N)
         tmp3 = k * tmp1
-        tmp1 = self.B - tmp3
-        self.S = pow(tmp1, tmp2, N)
+        tmp1 = B - tmp3
+        S = pow(tmp1, tmp2, N)
 
-        self.K     = hash_class(self.S.to_bytes()).digest()
-        self.M     = calculate_M( hash_class, N, g, self.username, self.s, self.A, self.B, self.K )
-        self.H_AMK = calculate_H_AMK( hash_class, self.A, self.M, self.K )
+        self.K     = hash_class(S.to_bytes()).digest()
+        M     = calculate_M( hash_class, N, g, self.username, s, self.A, B, self.K )
+        self.H_AMK = calculate_H_AMK( hash_class, self.A, M, self.K )
 
-        return self.M
+        return M
 
 
     def verify_session(self, host_HAMK):
