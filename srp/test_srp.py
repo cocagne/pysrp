@@ -45,7 +45,7 @@ FBB694B5C803D89F7AE435DE236D525F54759B65E372FCD68EF20FA7111F9E4AFF73''')
 
 class SRPTests( unittest.TestCase ):
 
-    def doit(self, u_mod, v_mod, g_mod, hash_alg=srp.SHA1, ng_type=srp.NG_2048, n_hex='', g_hex=''):
+    def doit(self, u_mod, v_mod, g_mod, hash_alg=srp.SHA1, ng_type=srp.NG_2048, n_hex='', g_hex='', k_hex=''):
         User                           = u_mod.User
         Verifier                       = v_mod.Verifier
         create_salted_verification_key = g_mod.create_salted_verification_key
@@ -165,6 +165,8 @@ class SRPTests( unittest.TestCase ):
         usr = _ctsrp.User('test', 'test')
         self.assertTrue(not usr.authenticated())
 
+    def test_custom_k(self):
+        usr = _ctsrp.User('test', 'test', k_hex='aabbcc')
 
 #-----------------------------------------------------------------------------------
 # Performance Testing

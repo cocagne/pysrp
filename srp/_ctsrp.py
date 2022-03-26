@@ -353,7 +353,7 @@ def get_ngk( hash_class, ng_type, n_hex, g_hex, ctx ):
 
 
 
-def create_salted_verification_key( username, password, hash_alg=SHA1, ng_type=NG_2048, n_hex=None, g_hex=None, salt_len=4 ):
+def create_salted_verification_key( username, password, hash_alg=SHA1, ng_type=NG_2048, n_hex=None, g_hex=None, salt_len=4, k_hex=None ):
     if ng_type == NG_CUSTOM and (n_hex is None or g_hex is None):
         raise ValueError("Both n_hex and g_hex are required when ng_type = NG_CUSTOM")
     s    = BN_new()
@@ -386,7 +386,7 @@ def create_salted_verification_key( username, password, hash_alg=SHA1, ng_type=N
 
 
 class Verifier (object):
-    def __init__(self,  username, bytes_s, bytes_v, bytes_A, hash_alg=SHA1, ng_type=NG_2048, n_hex=None, g_hex=None, bytes_b=None):
+    def __init__(self,  username, bytes_s, bytes_v, bytes_A, hash_alg=SHA1, ng_type=NG_2048, n_hex=None, g_hex=None, bytes_b=None, k_hex=None):
         if ng_type == NG_CUSTOM and (n_hex is None or g_hex is None):
             raise ValueError("Both n_hex and g_hex are required when ng_type = NG_CUSTOM")
         if bytes_b and len(bytes_b) != 32:
@@ -503,7 +503,7 @@ class Verifier (object):
 
 
 class User (object):
-    def __init__(self, username, password, hash_alg=SHA1, ng_type=NG_2048, n_hex=None, g_hex=None, bytes_a=None, bytes_A=None):
+    def __init__(self, username, password, hash_alg=SHA1, ng_type=NG_2048, n_hex=None, g_hex=None, bytes_a=None, bytes_A=None, k_hex=None):
         if ng_type == NG_CUSTOM and (n_hex is None or g_hex is None):
             raise ValueError("Both n_hex and g_hex are required when ng_type = NG_CUSTOM")
         if bytes_a and len(bytes_a) != 32:
