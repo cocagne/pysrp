@@ -532,7 +532,6 @@ class User (object):
         hash_class = _hash_map[ hash_alg ]
         N,g,k      = get_ngk( hash_class, ng_type, n_hex, g_hex, self.ctx )
         if k_hex is not None:
-            print(k_hex)
             BN_hex2bn(k, k_hex)
 
         self.hash_class = hash_class

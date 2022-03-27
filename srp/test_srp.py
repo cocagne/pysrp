@@ -165,7 +165,6 @@ class SRPTests( unittest.TestCase ):
         usr = _ctsrp.User('test', 'test')
         self.assertTrue(not usr.authenticated())
 
-    #@unittest.skip('not yet')
     def test_custom_k(self):
         self.doit( _ctsrp, _pysrp, _ctsrp, k_hex=six.b('5'))
 
