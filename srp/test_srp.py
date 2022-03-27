@@ -45,7 +45,7 @@ FBB694B5C803D89F7AE435DE236D525F54759B65E372FCD68EF20FA7111F9E4AFF73''')
 
 class SRPTests( unittest.TestCase ):
 
-    def doit(self, u_mod, v_mod, g_mod, hash_alg=srp.SHA1, ng_type=srp.NG_2048, n_hex='', g_hex='', k_hex=''):
+    def doit(self, u_mod, v_mod, g_mod, hash_alg=srp.SHA1, ng_type=srp.NG_2048, n_hex='', g_hex='', k_hex=None):
         User                           = u_mod.User
         Verifier                       = v_mod.Verifier
         create_salted_verification_key = g_mod.create_salted_verification_key
@@ -55,19 +55,19 @@ class SRPTests( unittest.TestCase ):
 
         _s, _v = create_salted_verification_key( username, password, hash_alg, ng_type, n_hex, g_hex )
 
-        usr      = User( username, password, hash_alg, ng_type, n_hex, g_hex )
+        usr      = User( username, password, hash_alg, ng_type, n_hex, g_hex, None, None, k_hex )
         bytes_a  = usr.get_ephemeral_secret()
         uname, A = usr.start_authentication()
 
         # Make sure a recreated User does all the same appropriate things
-        usr2     = User( username, password, hash_alg, ng_type, n_hex, g_hex, bytes_a )
+        usr2     = User( username, password, hash_alg, ng_type, n_hex, g_hex, bytes_a, None, k_hex )
         self.assertEqual(bytes_a, usr2.get_ephemeral_secret())
         uname2, A2 = usr2.start_authentication()
         self.assertEqual(uname, uname2)
         self.assertEqual(A, A2)
 
         # username, A => server
-        svr      = Verifier( uname, _s, _v, A, hash_alg, ng_type, n_hex, g_hex )
+        svr      = Verifier( uname, _s, _v, A, hash_alg, ng_type, n_hex, g_hex, None, k_hex )
         bytes_b  = svr.get_ephemeral_secret()
         s,B      = svr.get_challenge()
 
@@ -80,7 +80,7 @@ class SRPTests( unittest.TestCase ):
         HAMK     = svr.verify_session( M )
 
         # Make sure that a recreated Verifier will authenticate appropriately
-        svr2     = Verifier( uname, _s, _v, A, hash_alg, ng_type, n_hex, g_hex, bytes_b )
+        svr2     = Verifier( uname, _s, _v, A, hash_alg, ng_type, n_hex, g_hex, bytes_b, k_hex )
         self.assertEqual(bytes_b, svr2.get_ephemeral_secret())
         HAMK2    = svr2.verify_session( M )
         self.assertEqual(HAMK, HAMK2)
@@ -165,8 +165,9 @@ class SRPTests( unittest.TestCase ):
         usr = _ctsrp.User('test', 'test')
         self.assertTrue(not usr.authenticated())
 
+    #@unittest.skip('not yet')
     def test_custom_k(self):
-        usr = _ctsrp.User('test', 'test', k_hex='aabbcc')
+        self.doit( _ctsrp, _pysrp, _ctsrp, k_hex=six.b('5'))
 
 #-----------------------------------------------------------------------------------
 # Performance Testing
