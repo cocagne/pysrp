@@ -180,7 +180,7 @@ def old_H( hash_class, s1, s2 = '', s3=''):
 
 def H( hash_class, *args, **kwargs ):
     width = kwargs.get('width', None)
-    
+
     h = hash_class()
 
     for s in args:
@@ -221,7 +221,7 @@ def gen_x( hash_class, salt, username, password ):
 
 
 
-def create_salted_verification_key( username, password, hash_alg=SHA1, ng_type=NG_2048, n_hex=None, g_hex=None, salt_len=4 ):
+def create_salted_verification_key( username, password, hash_alg=SHA1, ng_type=NG_2048, n_hex=None, g_hex=None, salt_len=4, k_hex=None ):
     if ng_type == NG_CUSTOM and (n_hex is None or g_hex is None):
         raise ValueError("Both n_hex and g_hex are required when ng_type = NG_CUSTOM")
     hash_class = _hash_map[ hash_alg ]
@@ -257,7 +257,7 @@ def calculate_H_AMK( hash_class, A, M, K ):
 
 class Verifier (object):
 
-    def __init__(self, username, bytes_s, bytes_v, bytes_A, hash_alg=SHA1, ng_type=NG_2048, n_hex=None, g_hex=None, bytes_b=None):
+    def __init__(self, username, bytes_s, bytes_v, bytes_A, hash_alg=SHA1, ng_type=NG_2048, n_hex=None, g_hex=None, bytes_b=None, k_hex=None):
         if ng_type == NG_CUSTOM and (n_hex is None or g_hex is None):
             raise ValueError("Both n_hex and g_hex are required when ng_type = NG_CUSTOM")
         if bytes_b and len(bytes_b) != 32:
@@ -270,7 +270,10 @@ class Verifier (object):
 
         N,g        = get_ng( ng_type, n_hex, g_hex )
         hash_class = _hash_map[ hash_alg ]
-        k          = H( hash_class, N, g, width=len(long_to_bytes(N)) )
+        if k_hex is None:
+            k          = H( hash_class, N, g, width=len(long_to_bytes(N)) )
+        else:
+            k          = int(k_hex, 16)
 
         self.hash_class = hash_class
         self.N          = N
@@ -328,14 +331,17 @@ class Verifier (object):
 
 
 class User (object):
-    def __init__(self, username, password, hash_alg=SHA1, ng_type=NG_2048, n_hex=None, g_hex=None, bytes_a=None, bytes_A=None):
+    def __init__(self, username, password, hash_alg=SHA1, ng_type=NG_2048, n_hex=None, g_hex=None, bytes_a=None, bytes_A=None, k_hex=None):
         if ng_type == NG_CUSTOM and (n_hex is None or g_hex is None):
             raise ValueError("Both n_hex and g_hex are required when ng_type = NG_CUSTOM")
         if bytes_a and len(bytes_a) != 32:
             raise ValueError("32 bytes required for bytes_a")
         N,g        = get_ng( ng_type, n_hex, g_hex )
         hash_class = _hash_map[ hash_alg ]
-        k          = H( hash_class, N, g, width=len(long_to_bytes(N)) )
+        if k_hex is None:
+            k          = H( hash_class, N, g, width=len(long_to_bytes(N)) )
+        else:
+            k          = int(k_hex, 16)
 
         self.I     = username
         self.p     = password
