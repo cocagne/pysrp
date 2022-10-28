@@ -386,12 +386,11 @@ def create_salted_verification_key( username, password, hash_alg=SHA1, ng_type=N
 
 
 class Verifier (object):
-    def __init__(self,  username, bytes_s, bytes_v, bytes_A, hash_alg=SHA1, ng_type=NG_2048, n_hex=None, g_hex=None, bytes_b=None, k_hex=None):
+    def __init__(self,  username, bytes_s, bytes_v, bytes_A=None, hash_alg=SHA1, ng_type=NG_2048, n_hex=None, g_hex=None, bytes_b=None, k_hex=None):
         if ng_type == NG_CUSTOM and (n_hex is None or g_hex is None):
             raise ValueError("Both n_hex and g_hex are required when ng_type = NG_CUSTOM")
         if bytes_b and len(bytes_b) != 32:
             raise ValueError("32 bytes required for bytes_b")
-        self.A     = BN_new()
         self.B     = BN_new()
         self.K     = None
         self.S     = BN_new()
@@ -421,14 +420,10 @@ class Verifier (object):
 
         bytes_to_bn( self.s, bytes_s )
         bytes_to_bn( self.v, bytes_v )
-        bytes_to_bn( self.A, bytes_A )
+        if bytes_A:
+            self._set_A(bytes_A)
 
-        # SRP-6a safety check
-        BN_mod(self.tmp1, self.A, N, self.ctx)
-
-        if BN_is_zero(self.tmp1):
-            self.safety_failed = True
-        else:
+        if not self.safety_failed:
             if bytes_b:
                 bytes_to_bn( self.b, bytes_b )
             else:
@@ -440,18 +435,6 @@ class Verifier (object):
             BN_mod_exp(self.tmp2, g, self.b, N, self.ctx)
             BN_add(self.B, self.tmp1, self.tmp2)
             BN_mod(self.B, self.B, N, self.ctx)
-
-            H_bn_bn(hash_class, self.u, self.A, self.B, width=BN_num_bytes(N))
-
-            # S = (A *(v^u)) ^ b
-            BN_mod_exp(self.tmp1, self.v, self.u, N, self.ctx)
-            BN_mul(self.tmp2, self.A, self.tmp1, self.ctx)
-            BN_mod_exp(self.S, self.tmp2, self.b, N, self.ctx)
-
-            self.K = hash_class( bn_to_bytes(self.S) ).digest()
-
-            self.M     = calculate_M( hash_class, N, g, self.I, self.s, self.A, self.B, self.K )
-            self.H_AMK = calculate_H_AMK( hash_class, self.A, self.M, self.K )
 
 
     def __del__(self):
@@ -496,12 +479,40 @@ class Verifier (object):
             return (bn_to_bytes(self.s), bn_to_bytes(self.B))
 
 
-    def verify_session(self, user_M):
-        if user_M == self.M:
-            self._authenticated = True
-            return self.H_AMK
+    def verify_session(self, user_M, bytes_A=None):
+        if bytes_A:
+            self._set_A(bytes_A)
+        if not hasattr(self, 'A'):
+            raise ValueError("bytes_A must be provided through Verifier constructor or verify_session parameter.")
+        if not self.safety_failed:
+            self._derive_H_AMK()
+            if user_M == self.M:
+                self._authenticated = True
+                return self.H_AMK
 
 
+    def _set_A(self, bytes_A):
+        self.A     = BN_new()
+        bytes_to_bn( self.A, bytes_A )
+
+        # SRP-6a safety check
+        BN_mod(self.tmp1, self.A, self.N, self.ctx)
+
+        if BN_is_zero(self.tmp1):
+            self.safety_failed = True
+
+    def _derive_H_AMK(self):
+        H_bn_bn(self.hash_class, self.u, self.A, self.B, width=BN_num_bytes(self.N))
+
+        # S = (A *(v^u)) ^ b
+        BN_mod_exp(self.tmp1, self.v, self.u, self.N, self.ctx)
+        BN_mul(self.tmp2, self.A, self.tmp1, self.ctx)
+        BN_mod_exp(self.S, self.tmp2, self.b, self.N, self.ctx)
+
+        self.K = self.hash_class( bn_to_bytes(self.S) ).digest()
+
+        self.M     = calculate_M( self.hash_class, self.N, self.g, self.I, self.s, self.A, self.B, self.K )
+        self.H_AMK = calculate_H_AMK( self.hash_class, self.A, self.M, self.K )
 
 
 class User (object):
