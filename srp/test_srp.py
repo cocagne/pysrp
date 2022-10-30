@@ -85,12 +85,19 @@ class SRPTests( unittest.TestCase ):
         HAMK2    = svr2.verify_session( M )
         self.assertEqual(HAMK, HAMK2)
 
+        # Make sure Verifier generating B before receiving A will not change authentication.
+        svr3     =  Verifier ( uname, _s, _v, None, hash_alg, ng_type, n_hex, g_hex, bytes_b, k_hex )
+        self.assertEqual(bytes_b, svr3.get_ephemeral_secret())
+        HAMK3    =  svr3.verify_session( M, A )
+        self.assertEqual(HAMK, HAMK3)
+
         # HAMK => client
         usr.verify_session( HAMK )
         usr2.verify_session( HAMK )
 
         self.assertTrue( svr.authenticated() )
         self.assertTrue( svr2.authenticated() )
+        self.assertTrue( svr3.authenticated() )
 
         self.assertTrue( usr.authenticated() )
         self.assertTrue( svr2.authenticated() )
@@ -167,6 +174,16 @@ class SRPTests( unittest.TestCase ):
 
     def test_custom_k(self):
         self.doit( _ctsrp, _pysrp, _ctsrp, k_hex=six.b('5'))
+
+    def test_verifier_requires_A(self):
+        randbytes = _pysrp.long_to_bytes(_pysrp.get_random_of_length(32))
+
+        for mod in [_ctsrp, _pysrp]:
+            svr = mod.Verifier('uname', randbytes, randbytes)
+            with self.assertRaises(ValueError) as ctx:
+                svr.verify_session(randbytes)
+            self.assertIn('bytes_A', str(ctx.exception))
+
 
 #-----------------------------------------------------------------------------------
 # Performance Testing

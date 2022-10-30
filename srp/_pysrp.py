@@ -257,7 +257,7 @@ def calculate_H_AMK( hash_class, A, M, K ):
 
 class Verifier (object):
 
-    def __init__(self, username, bytes_s, bytes_v, bytes_A, hash_alg=SHA1, ng_type=NG_2048, n_hex=None, g_hex=None, bytes_b=None, k_hex=None):
+    def __init__(self, username, bytes_s, bytes_v, bytes_A=None, hash_alg=SHA1, ng_type=NG_2048, n_hex=None, g_hex=None, bytes_b=None, k_hex=None):
         if ng_type == NG_CUSTOM and (n_hex is None or g_hex is None):
             raise ValueError("Both n_hex and g_hex are required when ng_type = NG_CUSTOM")
         if bytes_b and len(bytes_b) != 32:
@@ -267,6 +267,8 @@ class Verifier (object):
         self.I = username
         self.K = None
         self._authenticated = False
+
+        self.safety_failed = False
 
         N,g        = get_ng( ng_type, n_hex, g_hex )
         hash_class = _hash_map[ hash_alg ]
@@ -280,23 +282,15 @@ class Verifier (object):
         self.g          = g
         self.k          = k
 
-        self.A = bytes_to_long(bytes_A)
-
-        # SRP-6a safety check
-        self.safety_failed = self.A % N == 0
+        if bytes_A:
+            self._set_A(bytes_A)
 
         if not self.safety_failed:
-
             if bytes_b:
                 self.b = bytes_to_long(bytes_b)
             else:
                 self.b = get_random_of_length( 32 )
             self.B = (k*self.v + pow(g, self.b, N)) % N
-            self.u = H(hash_class, self.A, self.B, width=len(long_to_bytes(N)))
-            self.S = pow(self.A*pow(self.v, self.u, N ), self.b, N)
-            self.K = hash_class( long_to_bytes(self.S) ).digest()
-            self.M = calculate_M( hash_class, N, g, self.I, self.s, self.A, self.B, self.K )
-            self.H_AMK = calculate_H_AMK( hash_class, self.A, self.M, self.K )
 
 
     def authenticated(self):
@@ -322,10 +316,30 @@ class Verifier (object):
             return (long_to_bytes(self.s), long_to_bytes(self.B))
 
     # returns H_AMK on success, None on failure
-    def verify_session(self, user_M):
-        if not self.safety_failed and user_M == self.M:
-            self._authenticated = True
-            return self.H_AMK
+    def verify_session(self, user_M, bytes_A=None):
+        if bytes_A:
+            self._set_A(bytes_A)
+        if not hasattr(self, 'A'):
+            raise ValueError("bytes_A must be provided through Verifier constructor or verify_session parameter.")
+        if not self.safety_failed:
+            self._derive_H_AMK()
+            if user_M == self.M:
+                self._authenticated = True
+                return self.H_AMK
+
+
+    def _set_A(self, bytes_A):
+        self.A = bytes_to_long(bytes_A)
+        # SRP-6a safety check
+        self.safety_failed = self.A % self.N == 0
+
+
+    def _derive_H_AMK(self):
+        self.u = H(self.hash_class, self.A, self.B, width=len(long_to_bytes(self.N)))
+        self.S = pow(self.A*pow(self.v, self.u, self.N ), self.b, self.N)
+        self.K = self.hash_class( long_to_bytes(self.S) ).digest()
+        self.M = calculate_M( self.hash_class, self.N, self.g, self.I, self.s, self.A, self.B, self.K )
+        self.H_AMK = calculate_H_AMK( self.hash_class, self.A, self.M, self.K )
 
 
 
