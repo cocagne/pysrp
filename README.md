@@ -47,7 +47,7 @@ Usage Example
 import srp
 
 # Consider enabling RFC5054 compatibility for interoperation with non pysrp SRP-6a implementations
-#pysrp.rfc5054_enable()
+#srp.rfc5054_enable()
 
 # The salt and verifier returned from srp.create_salted_verification_key() should be
 # stored on the server.
