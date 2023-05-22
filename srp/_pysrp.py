@@ -190,7 +190,7 @@ def H( hash_class, *args, **kwargs ):
                 h.update( bytes(width - len(data)))
             h.update( data )
 
-    return int( h.hexdigest(), 16 )
+    return h.digest()
 
 
 
@@ -216,7 +216,7 @@ def gen_x( hash_class, salt, username, password ):
     password = password.encode() if hasattr(password, 'encode') else password
     if _no_username_in_x:
         username = six.b('')
-    return H( hash_class, salt, H( hash_class, username + six.b(':') + password ) )
+    return bytes_to_long( H(hash_class, salt, H( hash_class, username + six.b(':') + password ) ))
 
 
 
@@ -273,7 +273,7 @@ class Verifier (object):
         N,g        = get_ng( ng_type, n_hex, g_hex )
         hash_class = _hash_map[ hash_alg ]
         if k_hex is None:
-            k          = H( hash_class, N, g, width=len(long_to_bytes(N)) )
+            k          = bytes_to_long( H( hash_class, N, g, width=len(long_to_bytes(N)) ))
         else:
             k          = int(k_hex, 16)
 
@@ -335,7 +335,7 @@ class Verifier (object):
 
 
     def _derive_H_AMK(self):
-        self.u = H(self.hash_class, self.A, self.B, width=len(long_to_bytes(self.N)))
+        self.u = bytes_to_long(H(self.hash_class, self.A, self.B, width=len(long_to_bytes(self.N))))
         self.S = pow(self.A*pow(self.v, self.u, self.N ), self.b, self.N)
         self.K = self.hash_class( long_to_bytes(self.S) ).digest()
         self.M = calculate_M( self.hash_class, self.N, self.g, self.I, self.s, self.A, self.B, self.K )
@@ -353,7 +353,7 @@ class User (object):
         N,g        = get_ng( ng_type, n_hex, g_hex )
         hash_class = _hash_map[ hash_alg ]
         if k_hex is None:
-            k          = H( hash_class, N, g, width=len(long_to_bytes(N)) )
+            k          = bytes_to_long(H( hash_class, N, g, width=len(long_to_bytes(N)) ))
         else:
             k          = int(k_hex, 16)
 
@@ -415,7 +415,7 @@ class User (object):
         if (self.B % N) == 0:
             return None
 
-        self.u = H( hash_class, self.A, self.B, width=len(long_to_bytes(N)) )
+        self.u = bytes_to_long(H( hash_class, self.A, self.B, width=len(long_to_bytes(N)) ))
 
         # SRP-6a safety check
         if self.u == 0:
