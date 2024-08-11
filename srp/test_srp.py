@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
+
 import unittest
 import os.path
 import os
@@ -32,9 +34,9 @@ import srp._pysrp as _pysrp
 import srp._ctsrp as _ctsrp
 
 
-test_g_hex = six.b("2")
+test_g_hex = b"2"
 test_n_hex = six.b('''\
-AC6BDB41324A9A9BF166DE5E1389582FAF72B6651987EE07FC3192943DB56050A37329CBB4\
+AC6BDB41324A9wA9BF166DE5E1389582FAF72B6651987EE07FC3192943DB56050A37329CBB4\
 A099ED8193E0757767A13DD52312AB4B03310DCD7F48A9DA04FD50E8083969EDB767B0CF60\
 95179A163AB3661A05FBD5FAAAE82918A9962F0B93B855F97993EC975EEAA80D740ADBF4FF\
 747359D041D5C33EA71D281E446B14773BCA97B43A23FB801676BD207A436C6481F1D2B907\
@@ -50,8 +52,8 @@ class SRPTests( unittest.TestCase ):
         Verifier                       = v_mod.Verifier
         create_salted_verification_key = g_mod.create_salted_verification_key
 
-        username = six.b('testuser')
-        password = six.b('testpassword')
+        username = b'testuser'
+        password = b'testpassword'
 
         _s, _v = create_salted_verification_key( username, password, hash_alg, ng_type, n_hex, g_hex )
 
@@ -173,7 +175,7 @@ class SRPTests( unittest.TestCase ):
         self.assertTrue(not usr.authenticated())
 
     def test_custom_k(self):
-        self.doit( _ctsrp, _pysrp, _ctsrp, k_hex=six.b('5'))
+        self.doit( _ctsrp, _pysrp, _ctsrp, k_hex=b'5')
 
     def test_verifier_requires_A(self):
         randbytes = _pysrp.long_to_bytes(_pysrp.get_random_of_length(32))
@@ -191,8 +193,8 @@ class SRPTests( unittest.TestCase ):
 hash_map  = { 0 : 'SHA1  ', 1 : 'SHA224', 2 : 'SHA256', 3 : 'SHA384', 4 : 'SHA512' }
 prime_map = { 0 : 1024, 1 : 2048, 2 : 4096, 3 : 8192 }
 
-username = six.b('testuser')
-password = six.b('testpassword')
+username = b'testuser'
+password = b'testpassword'
 
 NLEFT = 0
 
@@ -275,17 +277,17 @@ def print_performance_table():
     print('*'*60)
     print('Hash Algorithm vs Prime Number performance table')
     print('')
-    six.print_('       |', end=' ')
+    print('       |', end=' ')
     for ng in ng_types:
-        six.print_(('NG_%d' % prime_map[ng]).rjust(12), end=' ')
+        print(('NG_%d' % prime_map[ng]).rjust(12), end=' ')
     print('')
     print('-'*60)
 
     for hash_alg in hash_types:
 
-        six.print_('%s |' % hash_map[hash_alg], end=' ')
+        print('%s |' % hash_map[hash_alg], end=' ')
         for ng in ng_types:
-            six.print_('{0:>12f}'.format(performance_test(_ctsrp, hash_alg, ng) / 10), end=' ')
+            print('{0:>12f}'.format(performance_test(_ctsrp, hash_alg, ng) / 10), end=' ')
         print('')
 
 
