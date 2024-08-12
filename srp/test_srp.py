@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 
-from __future__ import print_function
-
 import unittest
 import os.path
 import os
 import sys
 import time
-from six.moves import _thread
+import _thread
+
 import six
 
 this_dir = os.path.dirname( os.path.abspath(__file__) )
