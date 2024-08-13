@@ -168,14 +168,14 @@ def get_random_of_length( nbytes ):
 
 
 def old_H( hash_class, s1, s2 = '', s3=''):
-    if isinstance(s1, six.integer_types):
+    if isinstance(s1, int):
         s1 = long_to_bytes(s1)
-    if s2 and isinstance(s2, six.integer_types):
+    if s2 and isinstance(s2, int):
         s2 = long_to_bytes(s2)
-    if s3 and isinstance(s3, six.integer_types):
+    if s3 and isinstance(s3, int):
         s3 = long_to_bytes(s3)
     s = s1 + s2 + s3
-    return long(hash_class(s).hexdigest(), 16)
+    return int(hash_class(s).hexdigest(), 16)
 
 
 def H( hash_class, *args, **kwargs ):
@@ -185,7 +185,7 @@ def H( hash_class, *args, **kwargs ):
 
     for s in args:
         if s is not None:
-            data = long_to_bytes(s) if isinstance(s, six.integer_types) else s
+            data = long_to_bytes(s) if isinstance(s, int) else s
             if width is not None and _rfc5054_compat:
                 h.update( bytes(width - len(data)))
             h.update( data )
@@ -255,7 +255,7 @@ def calculate_H_AMK( hash_class, A, M, K ):
 
 
 
-class Verifier (object):
+class Verifier:
 
     def __init__(self, username, bytes_s, bytes_v, bytes_A=None, hash_alg=SHA1, ng_type=NG_2048, n_hex=None, g_hex=None, bytes_b=None, k_hex=None):
         if ng_type == NG_CUSTOM and (n_hex is None or g_hex is None):
@@ -344,7 +344,7 @@ class Verifier (object):
 
 
 
-class User (object):
+class User:
     def __init__(self, username, password, hash_alg=SHA1, ng_type=NG_2048, n_hex=None, g_hex=None, bytes_a=None, bytes_A=None, k_hex=None):
         if ng_type == NG_CUSTOM and (n_hex is None or g_hex is None):
             raise ValueError("Both n_hex and g_hex are required when ng_type = NG_CUSTOM")

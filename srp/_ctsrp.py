@@ -13,7 +13,6 @@
   # x    Private key (derived from p and s)
   # v    Password verifier
 
-from __future__ import division
 import os
 import sys
 import hashlib
@@ -385,7 +384,7 @@ def create_salted_verification_key( username, password, hash_alg=SHA1, ng_type=N
 
 
 
-class Verifier (object):
+class Verifier:
     def __init__(self,  username, bytes_s, bytes_v, bytes_A=None, hash_alg=SHA1, ng_type=NG_2048, n_hex=None, g_hex=None, bytes_b=None, k_hex=None):
         if ng_type == NG_CUSTOM and (n_hex is None or g_hex is None):
             raise ValueError("Both n_hex and g_hex are required when ng_type = NG_CUSTOM")
@@ -515,7 +514,7 @@ class Verifier (object):
         self.H_AMK = calculate_H_AMK( self.hash_class, self.A, self.M, self.K )
 
 
-class User (object):
+class User:
     def __init__(self, username, password, hash_alg=SHA1, ng_type=NG_2048, n_hex=None, g_hex=None, bytes_a=None, bytes_A=None, k_hex=None):
         if ng_type == NG_CUSTOM and (n_hex is None or g_hex is None):
             raise ValueError("Both n_hex and g_hex are required when ng_type = NG_CUSTOM")
