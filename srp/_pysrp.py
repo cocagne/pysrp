@@ -16,7 +16,6 @@
 import hashlib
 import os
 import binascii
-import six
 
 
 _rfc5054_compat = False
@@ -140,7 +139,7 @@ def get_ng( ng_type, n_hex, g_hex ):
 
 def bytes_to_long(s):
     n = 0
-    for b in six.iterbytes(s):
+    for b in s:
         n = (n << 8) | b
     return n
 
@@ -155,7 +154,7 @@ def long_to_bytes(n):
         x = x | (b << off)
         off += 8
     l.reverse()
-    return six.b(''.join(l))
+    return (''.join(l)).encode('latin1')
 
 
 def get_random( nbytes ):
@@ -207,7 +206,7 @@ def HNxorg( hash_class, N, g ):
     hN = hash_class( bin_N ).digest()
     hg = hash_class( b''.join( [b'\0'*padding, bin_g] ) ).digest()
 
-    return six.b( ''.join( chr( six.indexbytes(hN, i) ^ six.indexbytes(hg, i) ) for i in range(0,len(hN)) ) )
+    return ( ''.join( chr( hN[i] ^ hg[i] ) for i in range(0,len(hN)) ) ).encode('latin1')
 
 
 
