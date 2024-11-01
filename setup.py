@@ -36,7 +36,7 @@ please refer to the `srp module documentation`_.
 '''
 
 setup(name             = 'srp',
-      version          = '1.0.21',
+      version          = '1.0.22',
       description      = 'Secure Remote Password',
       author           = 'Tom Cocagne',
       author_email     = 'tom.cocagne@gmail.com',
