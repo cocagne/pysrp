@@ -155,7 +155,10 @@ else:
     try:
         dlls.append( ctypes.cdll.LoadLibrary('libssl.so.1.1.0') )
     except OSError:
-        dlls.append( ctypes.cdll.LoadLibrary('libssl.so') )
+        try:
+            dlls.append( ctypes.cdll.LoadLibrary('libssl.so') )
+        except OSError:
+            dlls.append( ctypes.cdll.LoadLibrary('libssl.so.3') )
 
 class BIGNUM_Struct (ctypes.Structure):
     _fields_ = [ ("d",     ctypes.c_void_p),
