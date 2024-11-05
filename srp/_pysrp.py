@@ -168,11 +168,11 @@ def get_random_of_length( nbytes ):
 
 
 def old_H( hash_class, s1, s2 = '', s3=''):
-    if isinstance(s1, six.integer_types):
+    if isinstance(s1, int):
         s1 = long_to_bytes(s1)
-    if s2 and isinstance(s2, six.integer_types):
+    if s2 and isinstance(s2, int):
         s2 = long_to_bytes(s2)
-    if s3 and isinstance(s3, six.integer_types):
+    if s3 and isinstance(s3, int):
         s3 = long_to_bytes(s3)
     s = s1 + s2 + s3
     return long(hash_class(s).hexdigest(), 16)
@@ -185,7 +185,7 @@ def H( hash_class, *args, **kwargs ):
 
     for s in args:
         if s is not None:
-            data = long_to_bytes(s) if isinstance(s, six.integer_types) else s
+            data = long_to_bytes(s) if isinstance(s, int) else s
             if width is not None and _rfc5054_compat:
                 h.update( bytes(width - len(data)))
             h.update( data )
@@ -215,8 +215,8 @@ def gen_x( hash_class, salt, username, password ):
     username = username.encode() if hasattr(username, 'encode') else username
     password = password.encode() if hasattr(password, 'encode') else password
     if _no_username_in_x:
-        username = six.b('')
-    return bytes_to_long( H(hash_class, salt, H( hash_class, username + six.b(':') + password ) ))
+        username = b''
+    return bytes_to_long( H(hash_class, salt, H( hash_class, username + b':' + password ) ))
 
 
 
@@ -238,7 +238,7 @@ def calculate_M( hash_class, N, g, I, s, A, B, K ):
     h = hash_class()
     h.update( HNxorg( hash_class, N, g ) )
     h.update( hash_class(I).digest() )
-    if isinstance(s, six.integer_types):
+    if isinstance(s, int):
         s = long_to_bytes(s)
     h.update( s )
     h.update( long_to_bytes(A) )
